@@ -1,8 +1,8 @@
 [package]
 name = "mpw-tauri"
 version = "0.1.0"
-description = "A Tauri App"
-authors = ["you"]
+description = "MPW bundled with tauri"
+authors = ["Duddino <duddino@duddino.com>"]
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
@@ -14,7 +14,20 @@ tauri-build = { version = "1", features = [] }
 tauri = { version = "1", features = ["shell-open"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
+derive_more = { version = "1.0.0", features = ["display", "error"] }
+dirs = "5.0.1"
+flate2 = "1.0.33"
+mockall = "0.13.0"
+reqwest = "0.12.7"
+tar = "0.4.41"
+thiserror = "1.0.63"
 
 [features]
 # This feature is used for production builds or when a dev server is not specified, DO NOT REMOVE!!
 custom-protocol = ["tauri/custom-protocol"]
+full-node= []
+
+[dev-dependencies]
+mockito = "1.5.0"
+tempdir = "0.3.7"
+tokio = { version = "1.40.0", features = ["macros", "test-util"] }
