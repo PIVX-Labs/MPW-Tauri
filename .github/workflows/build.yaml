@@ -1,0 +1,111 @@
+name: Lint
+
+env:
+  TAURI_DEPS: "libwebkit2gtk-4.0-dev \
+    build-essential \
+    curl \
+    wget \
+    file \
+    libssl-dev \
+    libgtk-3-dev \
+    libayatana-appindicator3-dev \
+    librsvg2-dev"
+
+on:
+  # Trigger the workflow on push or pull request,
+  # but only for the main branch
+  push:
+    branches:
+      - master
+    paths-ignore:
+    - "*.md"
+    - LICENSE
+    - "*.yaml"
+  pull_request:
+    branches:
+      - master
+    paths-ignore:
+    - "*.md"
+    - LICENSE
+    - "*.yaml"
+
+
+jobs:
+  run-linters-mpw:
+    name: Run linters (MPW)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out Git repository
+        uses: actions/checkout@v4
+        with:
+          submodules: true
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+
+      - name: Install Node.js dependencies
+        run: cd ./MPW && npm ci
+
+      - name: Run ESlint
+        run: cd ./MPW && ls && npm run lint
+        
+      - name: Run prettier
+        run: cd ./MPW && npx prettier -l .
+        
+      - name: Run tests
+        run: cd ./MPW && npm test
+  run-linters-tauri:
+    name: Run linters (Tauri)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out Git repository
+        uses: actions/checkout@v4
+
+      - name: Set up Rust
+        uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          components: rustfmt
+          rustflags: ""
+      - name: Install tauri deps
+        run: sudo apt install $TAURI_DEPS
+
+      - name: Run tests
+        run: cd ./src-tauri && cargo test
+
+      - name: Check formatting
+        run: cd ./src-tauri && cargo fmt --check
+
+        
+  build-tauri:
+    name: Build tauri
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out Git repository
+        uses: actions/checkout@v4
+        with:
+          submodules: true
+      
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        
+      - name: Set up Rust
+        uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          rustflags: ""
+          
+      - name: Install Node.js dependencies
+        run: npm ci && cd ./MPW && npm ci
+        
+      - name: Install tauri deps
+        run: sudo apt install $TAURI_DEPS
+        
+      - name: Build MPW
+        run: cd ./MPW && npm run build
+        
+      - name: Build tauri
+        run: npm run tauri build
+      
+          
