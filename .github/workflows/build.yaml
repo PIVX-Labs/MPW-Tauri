@@ -1,0 +1,87 @@
+name: Lint
+
+on:
+  # Trigger the workflow on push or pull request,
+  # but only for the main branch
+  push:
+    branches:
+      - master
+    paths-ignore:
+    - "*.md"
+    - LICENSE
+    - "*.yaml"
+  pull_request:
+    branches:
+      - master
+    paths-ignore:
+    - "*.md"
+    - LICENSE
+    - "*.yaml"
+
+
+jobs:
+  run-linters-mpw:
+    name: Run linters (MPW)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out Git repository
+        uses: actions/checkout@v4
+
+      - name: Change Directory to MPW
+        run: cd MPW/
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+
+      - name: Install Node.js dependencies
+        run: npm ci
+
+      - name: Run ESlint
+        run: npm run lint
+        
+      - name: Run prettier
+        run: npx prettier -l .
+        
+      - name: Run tests
+        run: npm test
+  run-linters-tauri:
+    name: Run linters (Tauri)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out Git repository
+        uses: actions/checkout@v4
+        
+      - name: Change directory to Tauri
+        run: cd src-tauri/
+
+      - name: Set up Rust
+        uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          components: rustfmt
+
+      - name: Run tests
+        run: cargo test --all-features
+
+      - name: Check formatting
+        uses: actions-rust-lang/rustfmt@v1
+        
+  build-tauri:
+    name: Build tauri
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out Git repository
+        uses: actions/checkout@v4
+      
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+          
+      - name: Install Node.js dependencies
+        run: npm ci
+
+      - name: Build tauri
+        run: npm run tauri build
+      
+          
