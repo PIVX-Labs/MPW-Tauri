@@ -3,7 +3,7 @@ mod test;
 
 use flate2::read::GzDecoder;
 use std::fs::File;
-use std::io::Write;
+use std::io::{Read, Write};
 use std::path::PathBuf;
 use std::process::{Child, Command};
 use tar::Archive;
@@ -25,6 +25,9 @@ pub enum PIVXErrors {
 
     #[error("Pivxd not found")]
     PivxdNotFound,
+
+    #[error("Invalid sha256 sum")]
+    WrongSha256Sum(Option<std::io::Error>),
 }
 
 pub struct PIVX {
@@ -49,11 +52,21 @@ impl PIVX {
             return Err(PIVXErrors::ServerError);
         }
         std::fs::create_dir_all(&dir)?;
-        let mut file = File::create(dir.join("pivxd.tar.gz"))?;
+        let file_path = dir.join("pivxd.tar.gz");
+        let mut file = File::create(&file_path)?;
         while let Some(chunk) = request.chunk().await? {
             file.write_all(&chunk)?;
         }
-        Ok(())
+
+        let digest =
+            sha256::try_digest(&file_path).map_err(|e| PIVXErrors::WrongSha256Sum(Some(e)))?;
+        println!("{:?}", file_path.to_str());
+        println!("{}", digest);
+        if digest != Self::get_pivxd_sha256sum() {
+            Err(PIVXErrors::WrongSha256Sum(None))
+        } else {
+            Ok(())
+        }
     }
 
     fn decompress_archive(dir: &PathBuf) -> Result<(), PIVXErrors> {
@@ -86,6 +99,21 @@ impl PIVX {
         }
     }
 
+    #[cfg(test)]
+    fn get_pivxd_sha256sum() -> &'static str {
+        "398e8a1a206f898139947a2003bf738c0f39b63f5d9a3116a68d6f483421b0b5"
+    }
+
+    #[cfg(not(test))]
+    fn get_pivxd_sha256sum() -> &'static str {
+        #[cfg(target_os = "linux")]
+        return "6704625c63ff73da8c57f0fbb1dab6f1e4bd8f62c17467e05f52a64012a0ee2f";
+        #[allow(unreachable_code)]
+        {
+            panic!("Unsupported OS")
+        }
+    }
+
     fn new_by_path(path: &str) -> Result<Self, PIVXErrors> {
         let data_dir = Self::get_data_dir()?.join(".pivx");
         if !data_dir.exists() {
@@ -98,17 +126,6 @@ impl PIVX {
             ))
             .spawn()
             .map_err(|_| PIVXErrors::PivxdNotFound)?;
-        println!(
-            "-datadir={}",
-            data_dir.to_str().ok_or(PIVXErrors::PivxdNotFound)?
-        );
-        /*	handle.wait();
-        let mut string = String::new();
-        use std::io::Read;
-        if let Some(ref mut stdout) = handle.stdout {
-            stdout.read_to_string(&mut string);
-        }
-        println!("{}", string);*/
         Ok(PIVX { handle })
     }
 
