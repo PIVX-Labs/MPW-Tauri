@@ -3,44 +3,13 @@ use std::fs::File;
 use tempdir::TempDir;
 
 mod pivx_fetch {
+    use crate::binary::Binary;
+
     use super::*;
-    #[tokio::test]
-    async fn fetches_the_binary_correctly() -> Result<(), PIVXErrors> {
-        let data_dir = PIVX::get_data_dir()?;
-        let mut server = mockito::Server::new_async().await;
-        let m1 = server
-            .mock("GET", "/")
-            .with_body("PIVX Source code")
-            .create_async()
-            .await;
-        PIVX::fetch(&server.url(), &data_dir).await?;
-
-        let content = std::fs::read_to_string(data_dir.join("pivxd.tar.gz"))?;
-        assert_eq!(content, "PIVX Source code");
-        Ok(())
-    }
-
-    #[tokio::test]
-    async fn returns_error_when_server_returns_404() -> Result<(), PIVXErrors> {
-        let data_dir = PIVX::get_data_dir()?;
-        let mut server = mockito::Server::new_async().await;
-        let m1 = server
-            .mock("GET", "/")
-            .with_status(500)
-            .with_body("Internal server error.")
-            .create_async()
-            .await;
-        match PIVX::fetch(&server.url(), &data_dir).await {
-            Err(x) => {}
-            Ok(_) => panic!("Shuold return error"),
-        };
-
-        Ok(())
-    }
 
     #[test]
     fn correctly_uncompresses_archive_linux() -> Result<(), PIVXErrors> {
-        let data_dir = PIVX::get_data_dir()?;
+        let data_dir = Binary::get_data_dir()?;
         let mut file = File::create(data_dir.join("pivxd.tar.gz"))?;
         // This is a simple gzipped tar archive
         let data: [u8; 111] = [
@@ -54,7 +23,8 @@ mod pivx_fetch {
             0x00, 0x00, 0xfe, 0xe8, 0x01, 0x83, 0xad, 0x18, 0xb3, 0x00, 0x28, 0x00, 0x00,
         ];
         file.write_all(&data)?;
-        PIVX::decompress_archive(&data_dir)?;
+        let pivx_def = PIVXDefinition;
+        pivx_def.decompress_archive(&data_dir)?;
 
         let dirs: Vec<_> = std::fs::read_dir(data_dir)?
             .filter_map(|d| {
