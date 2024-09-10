@@ -1,6 +1,6 @@
 use super::*;
 use std::fs::File;
-use tempdir::TempDir;
+use std::io::Write;
 
 mod pivx_fetch {
     use crate::binary::Binary;
