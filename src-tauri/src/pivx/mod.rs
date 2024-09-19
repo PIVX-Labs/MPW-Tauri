@@ -52,10 +52,14 @@ impl BinaryDefinition for PIVXDefinition {
         base_dir.join("pivx-5.6.1").join("bin").join("pivxd")
     }
 
-    fn get_binary_args(&self, base_dir: &PathBuf) -> Result<String, PIVXErrors> {
-        Ok(format!(
-            "-datadir={}",
-            base_dir.to_str().ok_or(PIVXErrors::PivxdNotFound)?
-        ))
+    fn get_binary_args(&self, base_dir: &PathBuf) -> Result<Vec<String>, PIVXErrors> {
+        let args = format!(
+            "-datadir={} -rpcport={} -rpcuser={} -rpcpassword={}",
+            base_dir.to_str().ok_or(PIVXErrors::PivxdNotFound)?,
+            crate::RPC_PORT,
+            crate::RPC_USERNAME,
+            crate::RPC_PASSWORD,
+        );
+        Ok(args.split(" ").map(|s| s.to_string()).collect::<Vec<_>>())
     }
 }

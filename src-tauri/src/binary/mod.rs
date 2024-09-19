@@ -5,7 +5,7 @@ use crate::error::PIVXErrors;
 use std::fs::File;
 use std::io::Write;
 use std::path::PathBuf;
-use std::process::{Child, Command};
+use std::process::{Child, Command, Stdio};
 
 pub trait BinaryDefinition {
     fn get_url(&self) -> &str;
@@ -13,7 +13,7 @@ pub trait BinaryDefinition {
     fn get_archive_name(&self) -> &str;
     fn decompress_archive(&self, dir: &PathBuf) -> Result<(), PIVXErrors>;
     fn get_binary_path(&self, base_dir: &PathBuf) -> PathBuf;
-    fn get_binary_args(&self, base_dir: &PathBuf) -> Result<String, PIVXErrors>;
+    fn get_binary_args(&self, base_dir: &PathBuf) -> Result<Vec<String>, PIVXErrors>;
 }
 
 pub struct Binary {
@@ -78,7 +78,8 @@ impl Binary {
             std::fs::create_dir_all(&data_dir)?;
         }
         let handle = Command::new(path)
-            .arg(binary_definition.get_binary_args(&data_dir)?)
+            .args(binary_definition.get_binary_args(&data_dir)?)
+            .stdout(Stdio::null())
             .spawn()
             .map_err(|_| PIVXErrors::PivxdNotFound)?;
         Ok(Binary { handle })

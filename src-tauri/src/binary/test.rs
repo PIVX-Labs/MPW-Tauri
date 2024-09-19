@@ -22,7 +22,7 @@ impl BinaryDefinition for TestBinary {
     fn get_binary_path(&self, base_dir: &PathBuf) -> PathBuf {
         unimplemented!()
     }
-    fn get_binary_args(&self, _: &PathBuf) -> Result<String, PIVXErrors> {
+    fn get_binary_args(&self, _: &PathBuf) -> Result<Vec<String>, PIVXErrors> {
         unimplemented!()
     }
 }
