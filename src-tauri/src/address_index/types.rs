@@ -52,10 +52,15 @@ mod test {
             "txid": "123",
             "vout": [
                 {
-                    "addresses": ["Address1"]
+
+                    "scriptPubKey": {
+                        "addresses": ["Address1"]
+                    }
                 },
                 {
-                    "addresses": ["Address2"]
+                    "scriptPubKey": {
+                        "addresses": ["Address2"]
+                    }
                 }
             ]
         },
@@ -65,10 +70,14 @@ mod test {
                 {
                 },
                 {
-                    "addresses": ["Address3"]
+                    "scriptPubKey": {
+                        "addresses": ["Address3"]
+                    }
                 },
                 {
-                    "addresses": ["Address4", "Address5"]
+                    "scriptPubKey": {
+                        "addresses": ["Address4", "Address5"]
+                    }
                 }
             ]
         }
