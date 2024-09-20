@@ -30,4 +30,43 @@ impl<D: Database + Send, B: BlockSource + Send> AddressIndex<D, B> {
             block_source,
         }
     }
+    async fn get_address_txids(&self, address: &str) -> crate::error::Result<Vec<String>> {
+        self.database.get_address_txids(address).await
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::block_source::test::MockBlockSource;
+    use super::database::test::MockDB;
+    use super::*;
+
+    #[tokio::test]
+    async fn syncs_correctly() -> crate::error::Result<()> {
+        let mock_db = MockDB::default();
+        let block_source = MockBlockSource;
+        let mut address_index = AddressIndex::new(mock_db, block_source);
+        address_index.sync().await?;
+        assert_eq!(
+            address_index.get_address_txids("address1").await?,
+            vec!["txid1", "txid2", "txid3"]
+        );
+        assert_eq!(
+            address_index.get_address_txids("address2").await?,
+            vec!["txid1"]
+        );
+        assert_eq!(
+            address_index.get_address_txids("address4").await?,
+            vec!["txid2"]
+        );
+        assert_eq!(
+            address_index.get_address_txids("address5").await?,
+            vec!["txid3"]
+        );
+        assert_eq!(
+            address_index.get_address_txids("address6").await?,
+            Vec::<String>::new()
+        );
+        Ok(())
+    }
 }
