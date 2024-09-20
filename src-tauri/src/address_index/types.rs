@@ -39,8 +39,31 @@ where
 }
 
 #[cfg(test)]
-mod test {
+pub mod test {
     use super::*;
+
+    pub fn get_test_blocks() -> Vec<Block> {
+        vec![
+            Block {
+                txs: vec![Tx {
+                    txid: "txid1".to_owned(),
+                    addresses: vec!["address1".to_owned(), "address2".to_owned()],
+                }],
+            },
+            Block {
+                txs: vec![Tx {
+                    txid: "txid2".to_owned(),
+                    addresses: vec!["address1".to_owned(), "address4".to_owned()],
+                }],
+            },
+            Block {
+                txs: vec![Tx {
+                    txid: "txid3".to_owned(),
+                    addresses: vec!["address1".to_owned(), "address5".to_owned()],
+                }],
+            },
+        ]
+    }
 
     #[test]
     fn test_deserialization() -> Result<(), Box<dyn std::error::Error>> {

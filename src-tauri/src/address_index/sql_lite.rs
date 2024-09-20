@@ -28,7 +28,7 @@ impl Database for SqlLite {
     async fn get_address_txids(&self, address: &str) -> crate::error::Result<Vec<String>> {
         let mut stmt = self
             .connection
-            .prepare("SELECT txid FROM transaction WHERE address=?1")?;
+            .prepare("SELECT txid FROM transactions WHERE address=?1")?;
         let mut rows = stmt.query([address])?;
         let mut txids = vec![];
         while let Some(row) = rows.next()? {
@@ -63,6 +63,59 @@ impl Database for SqlLite {
             }
         }
         connection.commit()?;
+        Ok(())
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::super::types::test::get_test_blocks;
+    use super::*;
+    use tempdir::TempDir;
+
+    async fn test_address_retrival(sql_lite: &SqlLite) -> crate::error::Result<()> {
+        assert_eq!(
+            sql_lite.get_address_txids("address1").await?,
+            vec!["txid1", "txid2", "txid3"]
+        );
+        assert_eq!(sql_lite.get_address_txids("address2").await?, vec!["txid1"]);
+        assert_eq!(sql_lite.get_address_txids("address4").await?, vec!["txid2"]);
+        assert_eq!(sql_lite.get_address_txids("address5").await?, vec!["txid3"]);
+        assert_eq!(
+            sql_lite.get_address_txids("address6").await?,
+            Vec::<String>::new()
+        );
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_sqlite() -> crate::error::Result<()> {
+        let temp_dir = TempDir::new("sqlite-test")?;
+        let mut sql_lite = SqlLite::new(&temp_dir.path().join("test.sqlite")).await?;
+        let test_blocks = get_test_blocks();
+        for block in test_blocks {
+            for tx in block.txs {
+                sql_lite.store_tx(&tx).await?;
+            }
+        }
+        test_address_retrival(&sql_lite).await?;
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_sqlite_batch() -> crate::error::Result<()> {
+        let temp_dir = TempDir::new("sqlite-test-batch")?;
+        let mut sql_lite = SqlLite::new(&temp_dir.path().join("test.sqlite")).await?;
+        let test_blocks = get_test_blocks();
+        sql_lite
+            .store_txs(
+                test_blocks
+                    .into_iter()
+                    .flat_map(|block| block.txs.into_iter()),
+            )
+            .await?;
+
+        test_address_retrival(&sql_lite).await?;
         Ok(())
     }
 }
