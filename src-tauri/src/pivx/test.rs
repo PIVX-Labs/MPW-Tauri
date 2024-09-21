@@ -26,7 +26,7 @@ mod pivx_fetch {
         let pivx_def = PIVXDefinition;
         pivx_def.decompress_archive(&data_dir)?;
 
-        let dirs: Vec<_> = std::fs::read_dir(data_dir)?
+        let mut dirs: Vec<_> = std::fs::read_dir(data_dir)?
             .filter_map(|d| {
                 Some(
                     d.ok()?
@@ -38,7 +38,8 @@ mod pivx_fetch {
                 )
             })
             .collect();
-        assert_eq!(dirs, vec!["pivxd.tar.gz", "a"]);
+        dirs.sort();
+        assert_eq!(dirs, vec!["a", "pivxd.tar.gz"]);
 
         Ok(())
     }
