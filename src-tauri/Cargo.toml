@@ -22,6 +22,11 @@ reqwest = "0.12.7"
 tar = "0.4.41"
 thiserror = "1.0.63"
 sha256 = "1.5.0"
+futures = "0.3.30"
+rusqlite = "0.32.1"
+jsonrpsee = { version = "0.24.4", features = ["async-client", "client-core", "http-client"] }
+tokio = "1.40.0"
+base64 = "0.22.1"
 
 [features]
 # This feature is used for production builds or when a dev server is not specified, DO NOT REMOVE!!
@@ -30,5 +35,6 @@ full-node= []
 
 [dev-dependencies]
 mockito = "1.5.0"
+serde_json = "1"
 tempdir = "0.3.7"
 tokio = { version = "1.40.0", features = ["macros", "test-util"] }

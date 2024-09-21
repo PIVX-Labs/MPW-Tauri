@@ -21,6 +21,15 @@ pub enum PIVXErrors {
 
     #[error("Invalid sha256 sum")]
     WrongSha256Sum(Option<std::io::Error>),
+
+    #[error("Unable to connect to pivxd")]
+    UnableToAuthPIVXD(#[from] jsonrpsee::core::ClientError),
+
+    #[error("Error with Sqlite")]
+    SqliteError(#[from] rusqlite::Error),
+
+    #[error("Tauri error")]
+    TauriError(#[from] tauri::Error),
 }
 
 pub type Result<T> = std::result::Result<T, PIVXErrors>;

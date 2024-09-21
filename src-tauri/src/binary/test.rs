@@ -1,6 +1,4 @@
 use super::*;
-use std::fs::File;
-use tempdir::TempDir;
 
 struct TestBinary {
     url: String,
@@ -16,13 +14,13 @@ impl BinaryDefinition for TestBinary {
     fn get_archive_name(&self) -> &str {
         "a.tar.gz"
     }
-    fn decompress_archive(&self, dir: &PathBuf) -> Result<(), PIVXErrors> {
+    fn decompress_archive(&self, _dir: &Path) -> Result<(), PIVXErrors> {
         Ok(())
     }
-    fn get_binary_path(&self, base_dir: &PathBuf) -> PathBuf {
+    fn get_binary_path(&self, _base_dir: &Path) -> PathBuf {
         unimplemented!()
     }
-    fn get_binary_args(&self, _: &PathBuf) -> Result<String, PIVXErrors> {
+    fn get_binary_args(&self, _: &Path) -> Result<Vec<String>, PIVXErrors> {
         unimplemented!()
     }
 }
@@ -49,7 +47,7 @@ mod pivx_fetch {
     async fn returns_error_when_server_returns_404() -> Result<(), PIVXErrors> {
         let data_dir = Binary::get_data_dir()?;
         let mut server = mockito::Server::new_async().await;
-        let m1 = server
+        server
             .mock("GET", "/")
             .with_status(500)
             .with_body("Internal server error.")
@@ -57,7 +55,7 @@ mod pivx_fetch {
             .await;
         let binary_definition = TestBinary { url: server.url() };
         match Binary::fetch(&data_dir, &binary_definition).await {
-            Err(x) => {}
+            Err(_) => {}
             Ok(_) => panic!("Shuold return error"),
         };
 
