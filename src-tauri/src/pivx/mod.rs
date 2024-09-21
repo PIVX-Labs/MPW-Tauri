@@ -4,7 +4,7 @@ mod test;
 use crate::error::PIVXErrors;
 use flate2::read::GzDecoder;
 use std::fs::File;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use tar::Archive;
 
 use crate::binary::BinaryDefinition;
@@ -12,7 +12,7 @@ use crate::binary::BinaryDefinition;
 pub struct PIVXDefinition;
 
 impl BinaryDefinition for PIVXDefinition {
-    fn decompress_archive(&self, dir: &PathBuf) -> Result<(), PIVXErrors> {
+    fn decompress_archive(&self, dir: &Path) -> Result<(), PIVXErrors> {
         let mut tarball = Archive::new(GzDecoder::new(File::open(dir.join("pivxd.tar.gz"))?));
         tarball.unpack(dir)?;
 
@@ -48,11 +48,11 @@ impl BinaryDefinition for PIVXDefinition {
         }
     }
 
-    fn get_binary_path(&self, base_dir: &PathBuf) -> PathBuf {
+    fn get_binary_path(&self, base_dir: &Path) -> PathBuf {
         base_dir.join("pivx-5.6.1").join("bin").join("pivxd")
     }
 
-    fn get_binary_args(&self, base_dir: &PathBuf) -> Result<Vec<String>, PIVXErrors> {
+    fn get_binary_args(&self, base_dir: &Path) -> Result<Vec<String>, PIVXErrors> {
         let args = format!(
             "-datadir={} -rpcport={} -rpcuser={} -rpcpassword={}",
             base_dir.to_str().ok_or(PIVXErrors::PivxdNotFound)?,

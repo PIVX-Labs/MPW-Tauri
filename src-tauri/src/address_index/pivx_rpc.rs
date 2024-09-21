@@ -1,7 +1,7 @@
 use super::block_source::BlockSource;
 use super::types::Block;
-use futures::future::Pending;
-use futures::stream::{self, Stream};
+use base64::prelude::*;
+use futures::stream::Stream;
 use jsonrpsee::core::client::ClientT;
 use jsonrpsee::http_client::HttpClient;
 use jsonrpsee::rpc_params;
@@ -31,8 +31,9 @@ impl BlockStream {
         if let Err(ref err) = &block {
             eprintln!("{}", err);
         }
-        Some(block.ok()?)
+        block.ok()
     }
+
     pub fn new(client: HttpClient) -> Self {
         Self {
             client,
@@ -74,7 +75,8 @@ impl PIVXRpc {
         headers.insert(
             "Authorization",
             // TODO: remove unwrap
-            HeaderValue::from_str(&format!("Basic {}", base64::encode(credentials))).unwrap(),
+            HeaderValue::from_str(&format!("Basic {}", BASE64_STANDARD.encode(credentials)))
+                .unwrap(),
         );
         Ok(PIVXRpc {
             client: HttpClient::builder().set_headers(headers).build(url)?,

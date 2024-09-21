@@ -9,8 +9,7 @@ pub struct SqlLite {
 }
 
 impl SqlLite {
-    pub async fn new(path: &PathBuf) -> crate::error::Result<Self> {
-        let path = path.clone();
+    pub async fn new(path: PathBuf) -> crate::error::Result<Self> {
         tauri::async_runtime::spawn_blocking(move || {
 	    let connection = Connection::open(path)?;
 	    connection.execute_batch("
@@ -91,7 +90,7 @@ mod test {
     #[tokio::test]
     async fn test_sqlite() -> crate::error::Result<()> {
         let temp_dir = TempDir::new("sqlite-test")?;
-        let mut sql_lite = SqlLite::new(&temp_dir.path().join("test.sqlite")).await?;
+        let mut sql_lite = SqlLite::new(temp_dir.path().join("test.sqlite")).await?;
         let test_blocks = get_test_blocks();
         for block in test_blocks {
             for tx in block.txs {
@@ -105,7 +104,7 @@ mod test {
     #[tokio::test]
     async fn test_sqlite_batch() -> crate::error::Result<()> {
         let temp_dir = TempDir::new("sqlite-test-batch")?;
-        let mut sql_lite = SqlLite::new(&temp_dir.path().join("test.sqlite")).await?;
+        let mut sql_lite = SqlLite::new(temp_dir.path().join("test.sqlite")).await?;
         let test_blocks = get_test_blocks();
         sql_lite
             .store_txs(

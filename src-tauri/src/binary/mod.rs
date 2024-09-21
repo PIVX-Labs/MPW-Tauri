@@ -4,16 +4,16 @@ mod test;
 use crate::error::PIVXErrors;
 use std::fs::File;
 use std::io::Write;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::process::{Child, Command, Stdio};
 
 pub trait BinaryDefinition {
     fn get_url(&self) -> &str;
     fn get_sha256sum(&self) -> &str;
     fn get_archive_name(&self) -> &str;
-    fn decompress_archive(&self, dir: &PathBuf) -> Result<(), PIVXErrors>;
-    fn get_binary_path(&self, base_dir: &PathBuf) -> PathBuf;
-    fn get_binary_args(&self, base_dir: &PathBuf) -> Result<Vec<String>, PIVXErrors>;
+    fn decompress_archive(&self, dir: &Path) -> Result<(), PIVXErrors>;
+    fn get_binary_path(&self, base_dir: &Path) -> PathBuf;
+    fn get_binary_args(&self, base_dir: &Path) -> Result<Vec<String>, PIVXErrors>;
 }
 
 pub struct Binary {
@@ -33,14 +33,14 @@ impl Binary {
      * Fetches a binary and copies it into $XDG_DATA_HOME/pivx-rust or equivalent based on OS
      */
     async fn fetch<T: BinaryDefinition + Send>(
-        dir: &PathBuf,
+        dir: &Path,
         binary_definition: &T,
     ) -> Result<(), PIVXErrors> {
         let mut request = reqwest::get(binary_definition.get_url()).await?;
         if !request.status().is_success() {
             return Err(PIVXErrors::ServerError);
         }
-        std::fs::create_dir_all(&dir)?;
+        std::fs::create_dir_all(dir)?;
         let file_path = dir.join(binary_definition.get_archive_name());
         let mut file = File::create(&file_path)?;
         while let Some(chunk) = request.chunk().await? {
@@ -94,6 +94,6 @@ impl Binary {
             Self::fetch(&data_dir, binary_definition).await?;
             binary_definition.decompress_archive(&data_dir)?;
         }
-        Self::new_by_path(&*binary_path.to_string_lossy(), binary_definition)
+        Self::new_by_path(&binary_path.to_string_lossy(), binary_definition)
     }
 }

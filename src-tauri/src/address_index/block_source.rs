@@ -10,7 +10,7 @@ pub trait BlockSource {
 
 #[cfg(test)]
 pub mod test {
-    use super::super::types::{test::get_test_blocks, Block, Tx};
+    use super::super::types::{test::get_test_blocks, Block};
     use super::*;
 
     pub struct MockBlockSource;
