@@ -38,7 +38,7 @@ mod pivx_fetch {
                 )
             })
             .collect();
-	dirs.sort();
+        dirs.sort();
         assert_eq!(dirs, vec!["a", "pivxd.tar.gz"]);
 
         Ok(())
