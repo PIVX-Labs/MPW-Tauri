@@ -4,10 +4,7 @@ use crate::address_index::address_extractor::AddressExtractor;
 use crate::error::PIVXErrors;
 use futures::stream;
 use futures::stream::Stream;
-use sha2::{Digest, Sha256};
 use std::fs::File;
-use std::io::prelude::*;
-use std::io::Cursor;
 use std::path::{Path, PathBuf};
 use std::pin::Pin;
 
@@ -58,7 +55,7 @@ impl Iterator for BlockFileIterator {
                     File::open(self.db_path.join(format!("blk{:0>5}.dat", self.counter))).ok()?,
                 );
                 self.counter += 1;
-                &self.open_file.as_ref().unwrap()
+                self.open_file.as_ref().unwrap()
             }
         };
         let block = AddressExtractor::get_addresses_from_block(&mut file);
@@ -79,23 +76,5 @@ impl BlockSource for BlockFileSource {
     ) -> crate::error::Result<Pin<Box<dyn Stream<Item = Block> + '_ + Send>>> {
         let block_file_iterator = BlockFileIterator::new(&self.db_path);
         Ok(Box::pin(stream::iter(block_file_iterator)))
-    }
-}
-
-#[cfg(test)]
-mod test {
-    use super::*;
-    use futures::StreamExt;
-
-    #[tokio::test]
-    async fn temp_test() -> crate::error::Result<()> {
-        let mut b = BlockFileSource::new("/home/duddino/.local/share/pivx-rust/.pivx/blocks/");
-        let mut stream = b.get_blocks()?;
-        let mut counter = 0;
-        while let Some(block) = stream.next().await {
-            counter += 1;
-        }
-        println!("slurped {} blocks", counter);
-        Ok(())
     }
 }

@@ -20,7 +20,7 @@ pub const RPC_PASSWORD: &str = "password";
 // Learn more about Tauri commands at https://tauri.app/v1/guides/features/command
 #[tauri::command]
 async fn greet() -> Result<String, ()> {
-    let pivx_definition = PIVXDefinition;
+    let _pivx_definition = PIVXDefinition;
     /*let pivx = binary::Binary::new_by_fetching(&pivx_definition)
     .await
     .expect("Failed to run PIVX");*/
@@ -52,7 +52,9 @@ fn main() {
 #[cfg(test)]
 mod test {
     use super::*;
-    #[tokio::test]
+    // Uncomment to start manual testing without having to run MPW
+    // #[tokio::test]
+    #[allow(unused)]
     async fn main_test() {
         greet().await.unwrap();
     }

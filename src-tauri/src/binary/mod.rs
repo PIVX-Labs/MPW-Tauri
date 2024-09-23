@@ -56,18 +56,18 @@ impl Binary {
         }
     }
 
-    //#[cfg(not(test))]
+    #[cfg(not(test))]
     pub fn get_data_dir() -> Result<PathBuf, PIVXErrors> {
         Ok(dirs::data_dir()
             .ok_or(PIVXErrors::NoDataDir)?
             .join("pivx-rust"))
     }
-    /*
+
     #[cfg(test)]
     pub fn get_data_dir() -> Result<PathBuf, PIVXErrors> {
         use tempdir::TempDir;
         Ok(TempDir::new("pivx-rust")?.into_path())
-    }*/
+    }
 
     fn new_by_path<T: BinaryDefinition + Send>(
         path: &str,
@@ -79,7 +79,7 @@ impl Binary {
         }
         let handle = Command::new(path)
             .args(binary_definition.get_binary_args(&data_dir)?)
-            //     .stdout(Stdio::null())
+            .stdout(Stdio::null())
             .spawn()
             .map_err(|_| PIVXErrors::PivxdNotFound)?;
         Ok(Binary { handle })

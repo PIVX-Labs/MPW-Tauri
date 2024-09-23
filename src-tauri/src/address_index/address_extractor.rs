@@ -1,13 +1,8 @@
-use super::block_source::BlockSource;
 use super::types::{Block, Tx};
 use crate::error::PIVXErrors;
-use futures::stream::Stream;
 use sha2::{Digest, Sha256};
-use std::fs::File;
 use std::io::prelude::*;
 use std::io::Cursor;
-use std::path::PathBuf;
-use std::pin::Pin;
 
 pub struct AddressExtractor;
 
@@ -34,9 +29,8 @@ impl AddressExtractor {
             0xFF => {
                 let mut buf = [0u8; 8];
                 byte_source.read_exact(&mut buf)?;
-                u64::from_le_bytes(buf) as u64
+                u64::from_le_bytes(buf)
             }
-            _ => return Err(crate::error::PIVXErrors::InvalidVarInt),
         };
 
         Ok(value)
@@ -44,7 +38,7 @@ impl AddressExtractor {
 
     fn double_sha256(data: &[u8]) -> Vec<u8> {
         let first_hash = Sha256::digest(data);
-        let second_hash = Sha256::digest(&first_hash);
+        let second_hash = Sha256::digest(first_hash);
         second_hash.to_vec()
     }
 
@@ -147,13 +141,13 @@ impl AddressExtractor {
         byte_source.read_exact(&mut [0u8; 4])?;
         if has_sapling_data {
             let mut has_sapling_data = [0u8; 1];
-	    byte_source.read_exact(&mut has_sapling_data)?;
+            byte_source.read_exact(&mut has_sapling_data)?;
             if has_sapling_data[0] >= 1 {
                 // value balance
                 byte_source.read_exact(&mut [0u8; 8])?;
                 // shield spend len
                 let spend_len = Self::read_varint(byte_source)?;
-                for i in 0..spend_len {
+                for _ in 0..spend_len {
                     // cv (32) + anchor (32) + nullifier (32) + rk (32) + proof(192) + spendAuthSig (64)
                     byte_source.read_exact(&mut [0u8; 384])?;
                 }
@@ -163,8 +157,8 @@ impl AddressExtractor {
                     // cv (32) + cmu (32) + ephemeralKey (32) + encCiphertext (580) + outCiphertext (80) + proof (192)
                     byte_source.read_exact(&mut [0u8; 948])?;
                 }
-		// Binding sig (64)
-		byte_source.read_exact(&mut [0u8; 64])?;
+                // Binding sig (64)
+                byte_source.read_exact(&mut [0u8; 64])?;
             }
         }
         let end = byte_source.stream_position()?;
@@ -182,7 +176,6 @@ impl AddressExtractor {
     where
         T: Read + Seek,
     {
-        let start = byte_source.stream_position()?;
         let mut buff4 = [0u8; 4];
         // magic
         byte_source.read_exact(&mut buff4)?;
@@ -190,14 +183,13 @@ impl AddressExtractor {
         if magic != 0xe9fdc490 {
             println!("WARNING: magic is wrong!!! {:x}", magic);
             //panic!("what the fuck?");
-	    if magic == 0 {
-		return Err(PIVXErrors::InvalidVarInt)
-	    }
+            if magic == 0 {
+                return Err(PIVXErrors::InvalidVarInt);
+            }
             return Err(PIVXErrors::InvalidBlock);
         }
         // size
         byte_source.read_exact(&mut buff4)?;
-        let size = u32::from_le_bytes(buff4);
         // version
         byte_source.read_exact(&mut buff4)?;
         let version = u32::from_le_bytes(buff4);
@@ -209,7 +201,7 @@ impl AddressExtractor {
             byte_source.read_exact(&mut [0u8; 32])?;
         }
         // tx length (varint)
-        let mut txs = Self::read_varint(byte_source)?;
+        let txs = Self::read_varint(byte_source)?;
         let mut block = Block { txs: vec![] };
 
         let mut is_proof_of_stake = false;
@@ -218,7 +210,7 @@ impl AddressExtractor {
             if i == 1 && first_vout_empty {
                 is_proof_of_stake = true;
             }
-            if tx.addresses.len() > 0 {
+            if !tx.addresses.is_empty() {
                 block.txs.push(tx);
             }
         }
@@ -227,7 +219,6 @@ impl AddressExtractor {
             let block_sig_size = Self::read_varint(byte_source)?;
             byte_source.seek_relative(block_sig_size as i64)?;
         }
-        //byte_source.seek(std::io::SeekFrom::Start((start + size as u64)))?;
 
         Ok(block)
     }
@@ -311,20 +302,30 @@ mod test {
         Ok(())
     }
 
-    // #[test]
-    fn it_gets_address_from_sapling_tx() -> crate::error::Result<()> {
-        todo!()
-    }
-
     #[test]
     fn it_gets_address_from_sapling_block() -> crate::error::Result<()> {
-	let bytes = hex::decode(include_str!("test/sapling_block.hex")).unwrap();
-	let block = AddressExtractor::get_addresses_from_block(&mut Cursor::new(bytes))?;
-	assert_eq!(block.txs.len(), 2);
-	assert_eq!(block.txs[0].txid, "3f64c3328bac6d5bb8c002a46cd767e367ef6f9dd2298ba04ca51c2ef4f0cc2c");
-	assert_eq!(block.txs[0].addresses, vec!["DEjsj3jQWoJuMnGXi9B4h9gaGyBr5TrXFN", "DM2TWw1NvJ7sPxNXPZ8Cmn4DNGxYfa6yfX"]);
-	assert_eq!(block.txs[1].txid, "997938165e83478f25bd14b203e492b9ce39a3979384527868f72fd394e68a45");
-	assert_eq!(block.txs[1].addresses, vec!["DExue43LyQduJzkUwFq53LfSppAzdRGWU2"]);
-	Ok(())
+        let bytes = hex::decode(include_str!("test/sapling_block.hex")).unwrap();
+        let block = AddressExtractor::get_addresses_from_block(&mut Cursor::new(bytes))?;
+        assert_eq!(block.txs.len(), 2);
+        assert_eq!(
+            block.txs[0].txid,
+            "3f64c3328bac6d5bb8c002a46cd767e367ef6f9dd2298ba04ca51c2ef4f0cc2c"
+        );
+        assert_eq!(
+            block.txs[0].addresses,
+            vec![
+                "DEjsj3jQWoJuMnGXi9B4h9gaGyBr5TrXFN",
+                "DM2TWw1NvJ7sPxNXPZ8Cmn4DNGxYfa6yfX"
+            ]
+        );
+        assert_eq!(
+            block.txs[1].txid,
+            "997938165e83478f25bd14b203e492b9ce39a3979384527868f72fd394e68a45"
+        );
+        assert_eq!(
+            block.txs[1].addresses,
+            vec!["DExue43LyQduJzkUwFq53LfSppAzdRGWU2"]
+        );
+        Ok(())
     }
 }
