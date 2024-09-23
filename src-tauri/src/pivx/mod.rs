@@ -60,6 +60,7 @@ impl BinaryDefinition for PIVXDefinition {
             crate::RPC_USERNAME,
             crate::RPC_PASSWORD,
         );
+        println!("{}", args);
         Ok(args.split(" ").map(|s| s.to_string()).collect::<Vec<_>>())
     }
 }
