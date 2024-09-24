@@ -30,6 +30,12 @@ pub enum PIVXErrors {
 
     #[error("Tauri error")]
     TauriError(#[from] tauri::Error),
+
+    #[error("Invalid var int")]
+    InvalidVarInt,
+
+    #[error("Invalid block")]
+    InvalidBlock,
 }
 
 pub type Result<T> = std::result::Result<T, PIVXErrors>;

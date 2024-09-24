@@ -27,6 +27,10 @@ rusqlite = "0.32.1"
 jsonrpsee = { version = "0.24.4", features = ["async-client", "client-core", "http-client"] }
 tokio = "1.40.0"
 base64 = "0.22.1"
+hex = "0.4.3"
+bs58 = "0.5.1"
+sha2 = "0.10.8"
+libc = "0.2.158"
 
 [features]
 # This feature is used for production builds or when a dev server is not specified, DO NOT REMOVE!!
