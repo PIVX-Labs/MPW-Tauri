@@ -1,3 +1,4 @@
+use super::types::Vin;
 use super::types::{Block, Tx};
 use crate::error::PIVXErrors;
 use sha2::{Digest, Sha256};
@@ -110,13 +111,24 @@ impl AddressExtractor {
 
         // Vin length (varint)
         let vin_length = Self::read_varint(byte_source)?;
+        let mut vin = Vec::with_capacity(vin_length as usize);
         for _ in 0..vin_length {
-            // txid (32) + n (4)
-            byte_source.read_exact(&mut [0u8; 36])?;
+            let mut txid = [0u8; 32];
+            // txid (32)
+            byte_source.read_exact(&mut txid)?;
+            let mut n = [0u8; 4];
+            // n (4)
+            byte_source.read_exact(&mut n)?;
             // script length (varint)
             let script_length = Self::read_varint(byte_source)?;
             // script + sequence (4)
             byte_source.seek_relative((script_length as i64) + 4)?;
+
+            txid.reverse();
+            vin.push(Vin {
+                txid: hex::encode(txid),
+                n: u32::from_le_bytes(n),
+            });
         }
 
         let vout_length = Self::read_varint(byte_source)?;
@@ -169,7 +181,14 @@ impl AddressExtractor {
         txid_bytes.reverse();
 
         let txid = hex::encode(txid_bytes);
-        Ok((Tx { txid, addresses }, first_vout_empty))
+        Ok((
+            Tx {
+                txid,
+                addresses,
+                vin,
+            },
+            first_vout_empty,
+        ))
     }
 
     pub fn get_addresses_from_block<T>(byte_source: &mut T) -> crate::error::Result<Block>
@@ -270,8 +289,14 @@ mod test {
     #[test]
     fn it_gets_addresses_from_tx() -> crate::error::Result<()> {
         let bytes = hex::decode("0100000001f3614aede6f8d2366f52d9244999d9b26ebe0d2a63c7b7b4a06a8a6ab3bae5ba010000006b483045022100e3ebd6ca51e3abbb24bace92831facac82429ef9e0568ddf908bf601b4829e7b02202aa7081c4d0fd0112af0961f6c7923c97515b874464ce22b3c52f07f258bb64001210298279c6bd14d9fa47ffc4b8c40213e62ed0579f765d845bfa0ce44ba8cf8d385ffffffff0300000000000000000000c9d7930c0000001976a91444536354065eb3393f0ab11938e09725c467841e88ac0046c323000000001976a9144735f642faf6d1ab83478bd2fdda86f4188368ba88ac00000000").unwrap();
-        let (Tx { txid, addresses }, _) =
-            AddressExtractor::get_addresses_from_tx(&mut Cursor::new(&bytes))?;
+        let (
+            Tx {
+                txid,
+                addresses,
+                vin,
+            },
+            _,
+        ) = AddressExtractor::get_addresses_from_tx(&mut Cursor::new(&bytes))?;
         assert_eq!(
             &txid,
             "d09c64e78a0bf8943dc503fbbb3f19cead23685b7e725b5dd5fb35b09bd119f6"
@@ -282,6 +307,13 @@ mod test {
                 "DBNNPCiQu8JjESEoxuHCTXgNEw7Mk72wuW",
                 "DBddADmxi5g4tKdTA5yxFdDhN6gd85v5hx"
             ]
+        );
+        assert_eq!(
+            vin,
+            vec![Vin {
+                txid: "bae5bab36a8a6aa0b4b7c7632a0dbe6eb2d9994924d9526f36d2f8e6ed4a61f3".to_owned(),
+                n: 1
+            }]
         );
         Ok(())
     }
