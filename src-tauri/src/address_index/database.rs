@@ -1,6 +1,7 @@
-use super::types::Tx;
+use super::types::{Tx, Vin};
 
 pub trait Database {
+    async fn get_txid_from_vin(&self, vin: &Vin) -> crate::error::Result<Option<String>>;
     async fn get_address_txids(&self, address: &str) -> crate::error::Result<Vec<String>>;
     async fn store_tx(&mut self, tx: &Tx) -> crate::error::Result<()>;
     /**
@@ -25,6 +26,7 @@ pub mod test {
     #[derive(Default)]
     pub struct MockDB {
         address_map: HashMap<String, Vec<String>>,
+        vin_map: HashMap<Vin, String>,
     }
 
     impl Database for MockDB {
@@ -40,6 +42,9 @@ pub mod test {
                     .or_insert(vec![tx.txid.clone()]);
             }
             Ok(())
+        }
+        async fn get_txid_from_vin(&self, vin: &Vin) -> crate::error::Result<Option<String>> {
+            Ok(self.vin_map.get(vin).cloned())
         }
     }
 }

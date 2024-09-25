@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 
 use super::database::Database;
-use super::types::Tx;
+use super::types::{Tx, Vin};
 use rusqlite::{params, Connection};
 
 pub struct SqlLite {
@@ -15,6 +15,7 @@ impl SqlLite {
 	    connection.execute_batch("
 BEGIN;
 CREATE TABLE IF NOT EXISTS transactions(txid TEXT NOT NULL, address TEXT NOT NULL, PRIMARY KEY (txid, address));
+CREATE TABLE IF NOT EXISTS vin(txid TEXT NOT NULL, n INTEGER NOT NULL, spender_txid TEXT NOT NULL, PRIMARY KEY (txid, n));
 CREATE INDEX IF NOT EXISTS idx_address ON transactions (address);
 COMMIT;
 ")?;
@@ -37,13 +38,7 @@ impl Database for SqlLite {
         Ok(txids)
     }
     async fn store_tx(&mut self, tx: &Tx) -> crate::error::Result<()> {
-        let txid = &tx.txid;
-        let mut stmt = self
-            .connection
-            .prepare("INSERT OR IGNORE INTO transactions (txid, address) VALUES (?1, ?2);")?;
-        for address in &tx.addresses {
-            stmt.execute(params![txid, &address])?;
-        }
+        self.store_txs(std::iter::once(tx.clone())).await?;
         Ok(())
     }
 
@@ -59,10 +54,31 @@ impl Database for SqlLite {
                     "INSERT OR IGNORE INTO transactions (txid, address) VALUES (?1, ?2);",
                     params![txid, &address],
                 )?;
+                for vin in &tx.vin {
+                    connection.execute(
+                        "INSERT OR IGNORE INTO vin (txid, n, spender_txid) VALUES (?1, ?2, ?3)",
+                        params![vin.txid, vin.n, txid],
+                    )?;
+                }
             }
         }
         connection.commit()?;
         Ok(())
+    }
+
+    async fn get_txid_from_vin(&self, vin: &Vin) -> crate::error::Result<Option<String>> {
+        let mut stmt = self
+            .connection
+            .prepare("SELECT spender_txid FROM vin WHERE txid=?1 AND n=?2;")?;
+        let mut rows = stmt.query(params![vin.txid, vin.n])?;
+
+        if let Some(row) = rows.next()? {
+            // There should be at most 1 row, since txid and n are primary key
+            let txid: String = row.get(0)?;
+            Ok(Some(txid))
+        } else {
+            Ok(None)
+        }
     }
 }
 
@@ -83,6 +99,55 @@ mod test {
         assert_eq!(
             sql_lite.get_address_txids("address6").await?,
             Vec::<String>::new()
+        );
+
+        assert_eq!(
+            sql_lite
+                .get_txid_from_vin(&Vin {
+                    txid: "spenttxid".to_owned(),
+                    n: 3
+                })
+                .await?,
+            Some("txid1".to_owned())
+        );
+
+        assert_eq!(
+            sql_lite
+                .get_txid_from_vin(&Vin {
+                    txid: "spenttxid".to_owned(),
+                    n: 1
+                })
+                .await?,
+            Some("txid2".to_owned())
+        );
+        assert_eq!(
+            sql_lite
+                .get_txid_from_vin(&Vin {
+                    txid: "spenttxid2".to_owned(),
+                    n: 5
+                })
+                .await?,
+            Some("txid2".to_owned())
+        );
+
+        assert_eq!(
+            sql_lite
+                .get_txid_from_vin(&Vin {
+                    txid: "spenttxid2".to_owned(),
+                    n: 0
+                })
+                .await?,
+            None
+        );
+
+        assert_eq!(
+            sql_lite
+                .get_txid_from_vin(&Vin {
+                    txid: "spenttxid5".to_owned(),
+                    n: 3
+                })
+                .await?,
+            None
         );
         Ok(())
     }
