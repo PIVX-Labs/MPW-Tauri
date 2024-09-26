@@ -32,7 +32,7 @@ impl<D: Database + Send, B: BlockSource + Send> AddressIndex<D, B> {
             block_source,
         }
     }
-    async fn get_address_txids(&self, address: &str) -> crate::error::Result<Vec<String>> {
+    pub async fn get_address_txids(&self, address: &str) -> crate::error::Result<Vec<String>> {
         self.database.get_address_txids(address).await
     }
 }

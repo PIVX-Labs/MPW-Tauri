@@ -36,6 +36,9 @@ pub enum PIVXErrors {
 
     #[error("Invalid block")]
     InvalidBlock,
+
+    #[error("Invalid response from RPC")]
+    InvalidResponse,
 }
 
 pub type Result<T> = std::result::Result<T, PIVXErrors>;

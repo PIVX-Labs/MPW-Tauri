@@ -54,7 +54,7 @@ impl BinaryDefinition for PIVXDefinition {
 
     fn get_binary_args(&self, base_dir: &Path) -> Result<Vec<String>, PIVXErrors> {
         let args = format!(
-            "-datadir={} -rpcport={} -rpcuser={} -rpcpassword={}",
+            "-datadir={} -rpcport={} -rpcuser={} -rpcpassword={} -txindex=1",
             base_dir.to_str().ok_or(PIVXErrors::PivxdNotFound)?,
             crate::RPC_PORT,
             crate::RPC_USERNAME,

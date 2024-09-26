@@ -1,15 +1,22 @@
+use crate::error::PIVXErrors;
+
 use super::block_source::BlockSource;
 use super::types::Block;
 use base64::prelude::*;
 use futures::stream::Stream;
 use jsonrpsee::core::client::ClientT;
+use jsonrpsee::core::traits::ToRpcParams;
 use jsonrpsee::http_client::HttpClient;
 use jsonrpsee::rpc_params;
+use jsonrpsee::types::Params;
 use reqwest::header::{HeaderMap, HeaderValue};
+use serde::de::DeserializeOwned;
+use serde::Deserialize;
 use std::future::Future;
 use std::pin::Pin;
 use std::task::{Context, Poll};
 
+#[derive(Clone)]
 pub struct PIVXRpc {
     client: HttpClient,
 }
@@ -81,6 +88,18 @@ impl PIVXRpc {
         Ok(PIVXRpc {
             client: HttpClient::builder().set_headers(headers).build(url)?,
         })
+    }
+
+    pub async fn call<T, P>(&self, rpc: &str, params: P) -> crate::error::Result<T>
+    where
+        P: ToRpcParams + Send,
+        T: DeserializeOwned,
+    {
+        let res = self.client.request(rpc, params).await;
+        match res {
+            Ok(res) => Ok(res),
+            Err(_) => {res.unwrap(); Err(PIVXErrors::InvalidResponse)},
+        }
     }
 }
 

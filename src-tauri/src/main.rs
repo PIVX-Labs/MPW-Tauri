@@ -11,6 +11,7 @@ use pivx::PIVXDefinition;
 mod address_index;
 mod binary;
 mod error;
+mod explorer;
 mod pivx;
 
 pub const RPC_PORT: u16 = 51473;
@@ -43,8 +44,10 @@ async fn greet() -> Result<String, ()> {
 }
 
 fn main() {
+    use explorer::auto_generated::*;
+
     tauri::Builder::default()
-        .invoke_handler(tauri::generate_handler![greet])
+        .invoke_handler(tauri::generate_handler![explorer_get_block, explorer_get_block_count, explorer_get_txs, explorer_get_transaction, explorer_send_transaction])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
