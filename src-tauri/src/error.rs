@@ -39,6 +39,9 @@ pub enum PIVXErrors {
 
     #[error("Invalid response from RPC")]
     InvalidResponse,
+
+    #[error("Failed to fetch sapling params")]
+    FetchParamsFailed,
 }
 
 pub type Result<T> = std::result::Result<T, PIVXErrors>;

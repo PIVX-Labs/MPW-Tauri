@@ -5,18 +5,39 @@ use crate::error::PIVXErrors;
 use flate2::read::GzDecoder;
 use std::fs::File;
 use std::path::{Path, PathBuf};
+use std::process::Command;
 use tar::Archive;
 
 use crate::binary::BinaryDefinition;
 
 pub struct PIVXDefinition;
 
-impl BinaryDefinition for PIVXDefinition {
-    fn decompress_archive(&self, dir: &Path) -> Result<(), PIVXErrors> {
+impl PIVXDefinition {
+    fn inner_decompress_archive(&self, dir: &Path) -> Result<(), PIVXErrors> {
         let mut tarball = Archive::new(GzDecoder::new(File::open(dir.join("pivxd.tar.gz"))?));
         tarball.unpack(dir)?;
-
         Ok(())
+    }
+
+    fn inner_install_params(&self, dir: &Path) -> Result<(), PIVXErrors> {
+        let pivx_dir = dir.join("pivx-5.6.1");
+        let script_path = pivx_dir.join("install-params.sh");
+        let mut handle = Command::new(script_path)
+            .current_dir(pivx_dir)
+            .spawn()
+            .map_err(|_| PIVXErrors::FetchParamsFailed)?;
+        let status = handle.wait().map_err(|_| PIVXErrors::FetchParamsFailed)?;
+        match status.success() {
+            true => Ok(()),
+            false => Err(PIVXErrors::FetchParamsFailed),
+        }
+    }
+}
+
+impl BinaryDefinition for PIVXDefinition {
+    fn decompress_archive(&self, dir: &Path) -> Result<(), PIVXErrors> {
+        self.inner_decompress_archive(dir)?;
+        self.inner_install_params(dir)
     }
 
     fn get_url(&self) -> &str {
