@@ -47,7 +47,14 @@ fn main() {
     use explorer::auto_generated::*;
 
     tauri::Builder::default()
-        .invoke_handler(tauri::generate_handler![explorer_get_block, explorer_get_block_count, explorer_get_txs, explorer_get_transaction, explorer_send_transaction])
+        .invoke_handler(tauri::generate_handler![
+            explorer_get_block,
+            explorer_get_block_count,
+            explorer_get_txs,
+            explorer_get_transaction,
+            explorer_send_transaction,
+            explorer_get_tx_from_vin
+        ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }

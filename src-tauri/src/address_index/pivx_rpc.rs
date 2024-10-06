@@ -98,7 +98,7 @@ impl PIVXRpc {
         let res = self.client.request(rpc, params).await;
         match res {
             Ok(res) => Ok(res),
-            Err(_) => {res.unwrap(); Err(PIVXErrors::InvalidResponse)},
+            Err(_) => Err(PIVXErrors::InvalidResponse),
         }
     }
 }

@@ -25,15 +25,14 @@ COMMIT;
     }
 
     fn connect(&self) -> crate::error::Result<Connection> {
-	Ok(Connection::open(&self.path)?)
+        Ok(Connection::open(&self.path)?)
     }
 }
 
 impl Database for SqlLite {
     async fn get_address_txids(&self, address: &str) -> crate::error::Result<Vec<String>> {
-	let mut connection = self.connect()?;
-        let mut stmt = connection
-            .prepare("SELECT txid FROM transactions WHERE address=?1")?;
+        let mut connection = self.connect()?;
+        let mut stmt = connection.prepare("SELECT txid FROM transactions WHERE address=?1")?;
         let mut rows = stmt.query([address])?;
         let mut txids = vec![];
         while let Some(row) = rows.next()? {
@@ -52,7 +51,7 @@ impl Database for SqlLite {
     where
         I: Iterator<Item = Tx>,
     {
-	let mut connection = self.connect()?;
+        let mut connection = self.connect()?;
         let connection = connection.transaction()?;
         for tx in txs {
             let txid = &tx.txid;
@@ -74,9 +73,9 @@ impl Database for SqlLite {
     }
 
     async fn get_txid_from_vin(&self, vin: &Vin) -> crate::error::Result<Option<String>> {
-	let mut connection = self.connect()?;
-        let mut stmt = connection
-            .prepare("SELECT spender_txid FROM vin WHERE txid=?1 AND n=?2;")?;
+        let mut connection = self.connect()?;
+        let mut stmt =
+            connection.prepare("SELECT spender_txid FROM vin WHERE txid=?1 AND n=?2;")?;
         let mut rows = stmt.query(params![vin.txid, vin.n])?;
 
         if let Some(row) = rows.next()? {
