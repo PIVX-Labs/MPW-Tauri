@@ -18,13 +18,13 @@ derive_more = { version = "1.0.0", features = ["display", "error"] }
 dirs = "5.0.1"
 flate2 = "1.0.33"
 mockall = "0.13.0"
-reqwest = "0.12.7"
+reqwest = { version = "0.12.7", features = ["json"] }
 tar = "0.4.41"
 thiserror = "1.0.63"
 sha256 = "1.5.0"
 futures = "0.3.30"
 rusqlite = "0.32.1"
-jsonrpsee = { version = "0.24.4", features = ["async-client", "client-core", "http-client"] }
+jsonrpsee = { version = "0.24.4", features = ["client-core"] }
 tokio = "1.40.0"
 base64 = "0.22.1"
 hex = "0.4.3"
