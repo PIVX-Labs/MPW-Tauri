@@ -56,8 +56,11 @@ async fn get_explorer() -> &'static DefaultExplorer {
             let pivx_rpc = PIVXRpc::new(&format!("http://127.0.0.1:{}", RPC_PORT))
                 .await
                 .unwrap();
+            // FIXME: refactor this to accept HOME
             let address_index = AddressIndex::new(
-                SqlLite::new(PathBuf::from("~/test.sqlite")).await.unwrap(),
+                SqlLite::new(PathBuf::from("/home/duddino/test.sqlite"))
+                    .await
+                    .unwrap(),
                 pivx_rpc.clone(),
             );
             std::mem::forget(pivx);
