@@ -24,7 +24,7 @@ mod pivx_fetch {
         ];
         file.write_all(&data)?;
         let pivx_def = PIVXDefinition;
-        pivx_def.decompress_archive(&data_dir)?;
+        pivx_def.inner_decompress_archive(&data_dir)?;
 
         let mut dirs: Vec<_> = std::fs::read_dir(data_dir)?
             .filter_map(|d| {

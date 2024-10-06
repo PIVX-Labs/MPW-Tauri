@@ -12,10 +12,14 @@ use crate::binary::BinaryDefinition;
 
 pub struct PIVXDefinition;
 
-impl BinaryDefinition for PIVXDefinition {
-    fn decompress_archive(&self, dir: &Path) -> Result<(), PIVXErrors> {
+impl PIVXDefinition {
+    fn inner_decompress_archive(&self, dir: &Path) -> Result<(), PIVXErrors> {
         let mut tarball = Archive::new(GzDecoder::new(File::open(dir.join("pivxd.tar.gz"))?));
         tarball.unpack(dir)?;
+        Ok(())
+    }
+
+    fn inner_install_params(&self, dir: &Path) -> Result<(), PIVXErrors> {
         let pivx_dir = dir.join("pivx-5.6.1");
         let script_path = pivx_dir.join("install-params.sh");
         let mut handle = Command::new(script_path)
@@ -27,6 +31,13 @@ impl BinaryDefinition for PIVXDefinition {
             true => Ok(()),
             false => Err(PIVXErrors::FetchParamsFailed),
         }
+    }
+}
+
+impl BinaryDefinition for PIVXDefinition {
+    fn decompress_archive(&self, dir: &Path) -> Result<(), PIVXErrors> {
+        self.inner_decompress_archive(dir)?;
+        self.inner_install_params(dir)
     }
 
     fn get_url(&self) -> &str {
