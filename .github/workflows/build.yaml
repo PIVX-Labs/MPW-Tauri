@@ -69,7 +69,7 @@ jobs:
           components: rustfmt
           rustflags: ""
       - name: Install tauri deps
-        run: sudo apt install $TAURI_DEPS
+        run: sudo apt update && sudo apt install $TAURI_DEPS
 
       - name: Run tests
         run: cd ./src-tauri && cargo test
@@ -100,7 +100,7 @@ jobs:
         run: npm ci && cd ./MPW && npm ci
         
       - name: Install tauri deps
-        run: sudo apt install $TAURI_DEPS
+        run: sudo apt update && sudo apt install $TAURI_DEPS
         
       - name: Build MPW
         run: cd ./MPW && npm run build
