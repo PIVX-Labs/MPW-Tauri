@@ -9,6 +9,7 @@ pub mod types;
 use block_source::BlockSource;
 use database::Database;
 use futures::StreamExt;
+use types::Vin;
 
 pub struct AddressIndex<D: Database, B: BlockSource> {
     database: D,
@@ -32,8 +33,12 @@ impl<D: Database + Send, B: BlockSource + Send> AddressIndex<D, B> {
             block_source,
         }
     }
-    async fn get_address_txids(&self, address: &str) -> crate::error::Result<Vec<String>> {
+    pub async fn get_address_txids(&self, address: &str) -> crate::error::Result<Vec<String>> {
         self.database.get_address_txids(address).await
+    }
+
+    pub async fn get_txid_from_vin(&self, vin: &Vin) -> crate::error::Result<Option<String>> {
+        self.database.get_txid_from_vin(vin).await
     }
 }
 
