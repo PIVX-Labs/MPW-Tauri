@@ -1,12 +1,14 @@
+pub mod json_rpc;
+mod test;
+
 use crate::error::PIVXErrors;
 
 use super::block_source::BlockSource;
 use super::types::Block;
 use base64::prelude::*;
 use futures::stream::Stream;
-use jsonrpsee::core::client::ClientT;
+use json_rpc::HttpClient;
 use jsonrpsee::core::traits::ToRpcParams;
-use jsonrpsee::http_client::HttpClient;
 use jsonrpsee::rpc_params;
 use reqwest::header::{HeaderMap, HeaderValue};
 use serde::de::DeserializeOwned;
@@ -29,10 +31,12 @@ impl BlockStream {
     async fn get_next_block(client: HttpClient, current_block: u64) -> Option<Block> {
         println!("current block: {}", current_block);
         let hash: String = client
-            .request("getblockhash", rpc_params![current_block])
+            .request::<_, (), _>("getblockhash", rpc_params![current_block])
             .await
             .unwrap();
-        let block: Result<Block, _> = client.request("getblock", rpc_params![hash, 2]).await;
+        let block: Result<Block, _> = client
+            .request::<_, (), _>("getblock", rpc_params![hash, 2])
+            .await;
         if let Err(ref err) = &block {
             eprintln!("{}", err);
         }
@@ -93,7 +97,7 @@ impl PIVXRpc {
         P: ToRpcParams + Send,
         T: DeserializeOwned,
     {
-        let res = self.client.request(rpc, params).await;
+        let res = self.client.request::<_, (), _>(rpc, params).await;
         match res {
             Ok(res) => Ok(res),
             Err(_) => Err(PIVXErrors::InvalidResponse),
