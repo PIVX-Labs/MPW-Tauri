@@ -3,9 +3,7 @@
 
 use std::path::PathBuf;
 
-use address_index::{
-    block_file_source::BlockFileSource, pivx_rpc::PIVXRpc, sql_lite::SqlLite, AddressIndex,
-};
+use address_index::{block_file_source::BlockFileSource, sql_lite::SqlLite, AddressIndex};
 use pivx::PIVXDefinition;
 
 mod address_index;

@@ -1,20 +1,14 @@
-use address_index::address_extractor;
 use error::PIVXErrors;
-use futures::{StreamExt, TryStreamExt};
 use jsonrpsee::rpc_params;
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 use std::path::PathBuf;
 use tokio::sync::OnceCell;
 // TODO: remove this import
 use crate::*;
 
 use crate::address_index::{
-    block_source::BlockSource,
-    database::Database,
-    pivx_rpc::PIVXRpc,
-    sql_lite::SqlLite,
-    types::{Tx, Vin},
-    AddressIndex,
+    block_source::BlockSource, database::Database, pivx_rpc::PIVXRpc, sql_lite::SqlLite,
+    types::Vin, AddressIndex,
 };
 use global_function_macro::generate_global_functions;
 
@@ -62,10 +56,8 @@ async fn get_explorer() -> &'static DefaultExplorer {
             let pivx_rpc = PIVXRpc::new(&format!("http://127.0.0.1:{}", RPC_PORT))
                 .await
                 .unwrap();
-            let mut address_index = AddressIndex::new(
-                SqlLite::new(PathBuf::from("/home/duddino/test.sqlite"))
-                    .await
-                    .unwrap(),
+            let address_index = AddressIndex::new(
+                SqlLite::new(PathBuf::from("~/test.sqlite")).await.unwrap(),
                 pivx_rpc.clone(),
             );
             std::mem::forget(pivx);
@@ -93,7 +85,7 @@ where
     }
 
     pub async fn get_block_count(&self) -> crate::error::Result<u64> {
-        Ok(self.pivx_rpc.call("getblockcount", rpc_params![]).await?)
+        self.pivx_rpc.call("getblockcount", rpc_params![]).await
     }
 
     /// Gets all raw transactions containing one of `address`
@@ -104,7 +96,7 @@ where
         let mut txs = vec![];
         for address in addresses {
             for txid in self.address_index.get_address_txids(address).await? {
-                if let Some(tx) = self.get_transaction(&txid).await.ok() {
+                if let Ok(tx) = self.get_transaction(&txid).await {
                     txs.push(tx);
                 }
             }
@@ -158,39 +150,8 @@ where
     }
 
     pub async fn send_transaction(&self, transaction: &str) -> crate::error::Result<String> {
-        Ok(self
-            .pivx_rpc
+        self.pivx_rpc
             .call("sendrawtransaction", rpc_params![transaction])
-            .await?)
-    }
-}
-
-#[cfg(test)]
-mod test {
-    use super::*;
-    use std::time::Duration;
-    #[tokio::test]
-    async fn temp_test() -> crate::error::Result<()> {
-        use crate::*;
-        use std::path::PathBuf;
-        let pivx_definition = PIVXDefinition;
-        let pivx = binary::Binary::new_by_fetching(&pivx_definition)
             .await
-            .expect("Failed to run PIVX");
-        let pivx_rpc = PIVXRpc::new(&format!("http://127.0.0.1:{}", RPC_PORT))
-            .await
-            .unwrap();
-        let mut address_index = AddressIndex::new(
-            SqlLite::new(PathBuf::from("/home/duddino/test.sqlite"))
-                .await
-                .unwrap(),
-            pivx_rpc.clone(),
-        );
-        let explorer = Explorer::new(address_index, pivx_rpc);
-        tokio::time::sleep(Duration::from_secs(60)).await;
-        std::mem::forget(pivx);
-
-        println!("{}", explorer.get_block(123).await?);
-        Ok(())
     }
 }

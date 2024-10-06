@@ -42,7 +42,7 @@ pub fn generate_global_functions(_attr: TokenStream, item: TokenStream) -> Token
             let function_name = &Ident::new(&format!("{}_{}", struct_name_snake_case, method_name.to_string()), method_name.span());
 	    let return_type = match &method.sig.output {
 		ReturnType::Default => panic!("Return a type you lazy ass"),
-		ReturnType::Type(arrow, return_type) => {
+		ReturnType::Type(_, return_type) => {
 		    &match &**return_type {
 			Type::Path(return_type) => {
 			    match return_type.path.segments.last() {
