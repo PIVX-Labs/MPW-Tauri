@@ -11,6 +11,7 @@ use database::Database;
 use futures::StreamExt;
 use types::Vin;
 
+#[derive(Clone)]
 pub struct AddressIndex<D: Database, B: BlockSource> {
     database: D,
     block_source: B,
