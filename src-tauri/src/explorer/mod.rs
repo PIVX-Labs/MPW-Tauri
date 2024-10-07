@@ -1,15 +1,14 @@
-use error::PIVXErrors;
+use crate::error::PIVXErrors;
 use jsonrpsee::rpc_params;
 use serde::Deserialize;
 use std::path::PathBuf;
 use tokio::sync::OnceCell;
-// TODO: remove this import
-use crate::*;
 
 use crate::address_index::{
-    block_source::BlockSource, database::Database, pivx_rpc::PIVXRpc, sql_lite::SqlLite,
-    types::Vin, AddressIndex,
+    database::Database, pivx_rpc::PIVXRpc, sql_lite::SqlLite, types::Vin, AddressIndex,
 };
+use crate::binary::Binary;
+use crate::{PIVXDefinition, RPC_PORT};
 use global_function_macro::generate_global_functions;
 
 //#[derive(Deserialize, Serialize)]
@@ -21,23 +20,21 @@ type TxHexWithBlockCount = (String, u64, u64);
 }*/
 
 #[derive(Clone)]
-pub struct Explorer<D, B>
+pub struct Explorer<D>
 where
     D: Database,
-    B: BlockSource,
 {
-    address_index: AddressIndex<D, B>,
+    address_index: AddressIndex<D>,
     pivx_rpc: PIVXRpc,
 }
 
-type DefaultExplorer = Explorer<SqlLite, PIVXRpc>;
+type DefaultExplorer = Explorer<SqlLite>;
 
-impl<D, B> Explorer<D, B>
+impl<D> Explorer<D>
 where
     D: Database + Send + Clone,
-    B: BlockSource + Send + Clone,
 {
-    fn new(address_index: AddressIndex<D, B>, rpc: PIVXRpc) -> Self {
+    fn new(address_index: AddressIndex<D>, rpc: PIVXRpc) -> Self {
         Self {
             address_index,
             pivx_rpc: rpc,
@@ -51,7 +48,7 @@ async fn get_explorer() -> &'static DefaultExplorer {
     EXPLORER
         .get_or_init(|| async {
             let pivx_definition = PIVXDefinition;
-            let pivx = binary::Binary::new_by_fetching(&pivx_definition)
+            let pivx = Binary::new_by_fetching(&pivx_definition)
                 .await
                 .expect("Failed to run PIVX");
             let pivx_rpc = PIVXRpc::new(&format!("http://127.0.0.1:{}", RPC_PORT))
@@ -81,10 +78,9 @@ async fn get_explorer() -> &'static DefaultExplorer {
 }
 
 #[generate_global_functions]
-impl<D, B> Explorer<D, B>
+impl<D> Explorer<D>
 where
     D: Database + Send + Clone,
-    B: BlockSource + Send + Clone,
 {
     pub async fn get_block(&self, block_height: u64) -> crate::error::Result<String> {
         let block_hash: String = self

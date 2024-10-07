@@ -18,6 +18,7 @@ impl SqlLite {
 BEGIN;
 CREATE TABLE IF NOT EXISTS transactions(txid TEXT NOT NULL, address TEXT NOT NULL, PRIMARY KEY (txid, address));
 CREATE TABLE IF NOT EXISTS vin(txid TEXT NOT NULL, n INTEGER NOT NULL, spender_txid TEXT NOT NULL, PRIMARY KEY (txid, n));
+CREATE TABLE IF NOT EXISTS config(key TEXT NOT NULL PRIMARY KEY, value INTEGER NOT NULL);
 CREATE INDEX IF NOT EXISTS idx_address ON transactions (address);
 COMMIT;
 ")?;
@@ -85,6 +86,27 @@ impl Database for SqlLite {
             Ok(Some(txid))
         } else {
             Ok(None)
+        }
+    }
+
+    async fn update_block_count(&mut self, block_count: u64) -> crate::error::Result<()> {
+        let connection = self.connect()?;
+        connection.execute(
+            "INSERT OR REPLACE INTO config (key, value) VALUES ('BLOCK_COUNT', ?1);",
+            [block_count],
+        )?;
+        Ok(())
+    }
+
+    async fn get_last_indexed_block(&self) -> crate::error::Result<u64> {
+        let connection = self.connect()?;
+        let mut stmt = connection.prepare("SELECT value FROM config WHERE key='BLOCK_COUNT';")?;
+        let mut rows = stmt.query([])?;
+
+        if let Some(row) = rows.next()? {
+            Ok(row.get(0)?)
+        } else {
+            Ok(0)
         }
     }
 }
@@ -187,6 +209,22 @@ mod test {
             .await?;
 
         test_address_retrival(&sql_lite).await?;
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn it_stores_block_count() -> crate::error::Result<()> {
+        let temp_dir = TempDir::new("sqlite-test-batch")?;
+        let mut sql_lite = SqlLite::new(temp_dir.path().join("test.sqlite")).await?;
+        // Last indexed block should be 0 initially
+        assert_eq!(sql_lite.get_last_indexed_block().await?, 0);
+        sql_lite.update_block_count(1345).await?;
+        // Last indexed block should update
+        assert_eq!(sql_lite.get_last_indexed_block().await?, 1345);
+        sql_lite.update_block_count(13450).await?;
+        // Last indexed block should update even if there is already a row
+        assert_eq!(sql_lite.get_last_indexed_block().await?, 13450);
+
         Ok(())
     }
 }

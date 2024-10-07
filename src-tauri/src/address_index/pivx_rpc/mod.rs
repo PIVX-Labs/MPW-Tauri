@@ -3,10 +3,11 @@ mod test;
 
 use crate::error::PIVXErrors;
 
-use super::block_source::BlockSource;
+use super::block_source::{BlockSource, BlockSourceType, IndexedBlockSource, PinnedStream};
 use super::types::Block;
 use base64::prelude::*;
 use futures::stream::Stream;
+use futures::StreamExt;
 use json_rpc::HttpClient;
 use jsonrpsee::core::traits::ToRpcParams;
 use jsonrpsee::rpc_params;
@@ -14,6 +15,7 @@ use reqwest::header::{HeaderMap, HeaderValue};
 use serde::de::DeserializeOwned;
 use std::future::Future;
 use std::pin::Pin;
+use std::sync::Arc;
 use std::task::{Context, Poll};
 
 #[derive(Clone)]
@@ -21,14 +23,16 @@ pub struct PIVXRpc {
     client: HttpClient,
 }
 
+type BlockStreamFuture = Pin<Box<dyn Future<Output = Option<(Block, u64)>> + Send>>;
+
 struct BlockStream {
     client: HttpClient,
     current_block: u64,
-    current_future: Option<Pin<Box<dyn Future<Output = Option<Block>> + Send>>>,
+    current_future: Option<BlockStreamFuture>,
 }
 
 impl BlockStream {
-    async fn get_next_block(client: HttpClient, current_block: u64) -> Option<Block> {
+    async fn get_next_block(client: HttpClient, current_block: u64) -> Option<(Block, u64)> {
         println!("current block: {}", current_block);
         let hash: String = client
             .request::<_, (), _>("getblockhash", rpc_params![current_block])
@@ -40,7 +44,7 @@ impl BlockStream {
         if let Err(ref err) = &block {
             eprintln!("{}", err);
         }
-        block.ok()
+        block.ok().map(|b| (b, current_block))
     }
 
     pub fn new(client: HttpClient) -> Self {
@@ -50,10 +54,18 @@ impl BlockStream {
             current_future: None,
         }
     }
+
+    pub fn with_starting_block(client: HttpClient, starting_block: u64) -> Self {
+        Self {
+            client,
+            current_block: starting_block,
+            current_future: None,
+        }
+    }
 }
 
 impl Stream for BlockStream {
-    type Item = Block;
+    type Item = (Block, u64);
 
     fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
         if let Some(ref mut future) = &mut self.current_future {
@@ -106,11 +118,26 @@ impl PIVXRpc {
 }
 
 impl BlockSource for PIVXRpc {
-    fn get_blocks(
-        &mut self,
-    ) -> crate::error::Result<Pin<Box<dyn Stream<Item = Block> + Send + '_>>> {
-        let block_stream = BlockStream::new(self.client.clone());
+    fn get_blocks(&self) -> crate::error::Result<Pin<Box<dyn Stream<Item = Block> + Send + '_>>> {
+        Ok(Box::pin(self.get_blocks_indexed(0)?.map(|(b, _)| b)))
+    }
+
+    fn instantiate(self) -> BlockSourceType {
+        BlockSourceType::Indexed(Arc::new(self))
+    }
+}
+
+impl IndexedBlockSource for PIVXRpc {
+    fn get_blocks_indexed(
+        &self,
+        start_from: u64,
+    ) -> crate::error::Result<PinnedStream<'_, (Block, u64)>> {
+        let block_stream = BlockStream::with_starting_block(self.client.clone(), start_from);
 
         Ok(Box::pin(block_stream))
+    }
+
+    fn as_block_source(&self) -> &(dyn BlockSource + Send + Sync + 'static) {
+        self
     }
 }
