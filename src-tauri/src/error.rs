@@ -42,6 +42,9 @@ pub enum PIVXErrors {
 
     #[error("Failed to fetch sapling params")]
     FetchParamsFailed,
+
+    #[error("PIVXD was stopped before loading was finished")]
+    PivxdStopped,
 }
 
 pub type Result<T> = std::result::Result<T, PIVXErrors>;

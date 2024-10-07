@@ -5,7 +5,8 @@ use crate::error::PIVXErrors;
 use std::fs::File;
 use std::io::Write;
 use std::path::{Path, PathBuf};
-use std::process::{Child, Command, Stdio};
+use std::process::Stdio;
+use tokio::process::{Child, Command};
 
 pub trait BinaryDefinition {
     fn get_url(&self) -> &str;
@@ -14,6 +15,7 @@ pub trait BinaryDefinition {
     fn decompress_archive(&self, dir: &Path) -> Result<(), PIVXErrors>;
     fn get_binary_path(&self, base_dir: &Path) -> PathBuf;
     fn get_binary_args(&self, base_dir: &Path) -> Result<Vec<String>, PIVXErrors>;
+    async fn wait_for_load(&self, handle: &mut Child) -> crate::error::Result<()>;
 }
 
 pub struct Binary {
@@ -23,8 +25,8 @@ pub struct Binary {
 impl Drop for Binary {
     fn drop(&mut self) {
         // This sends SIGKILL so this should be refactored to send SIGTERM
-        self.handle.kill().expect("Failed to kill pivxd");
-        self.handle.wait().expect("Failed to wait");
+        //        self.handle.kill().expect("Failed to kill pivxd");
+        //        self.handle.wait().expect("Failed to wait");
     }
 }
 
@@ -79,7 +81,8 @@ impl Binary {
         }
         let handle = Command::new(path)
             .args(binary_definition.get_binary_args(&data_dir)?)
-            .stdout(Stdio::null())
+            .stdout(Stdio::piped())
+            .kill_on_drop(true)
             .spawn()
             .map_err(|_| PIVXErrors::PivxdNotFound)?;
         Ok(Binary { handle })
@@ -95,5 +98,15 @@ impl Binary {
             binary_definition.decompress_archive(&data_dir)?;
         }
         Self::new_by_path(&binary_path.to_string_lossy(), binary_definition)
+    }
+
+    /**
+     * Resolves when binary finishes to load
+     */
+    pub async fn wait_for_load<T: BinaryDefinition + Send>(
+        &mut self,
+        binary_definition: &T,
+    ) -> crate::error::Result<()> {
+        binary_definition.wait_for_load(&mut self.handle).await
     }
 }

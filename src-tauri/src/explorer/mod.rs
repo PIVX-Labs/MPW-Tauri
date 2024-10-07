@@ -11,13 +11,7 @@ use crate::binary::Binary;
 use crate::{PIVXDefinition, RPC_PORT};
 use global_function_macro::generate_global_functions;
 
-//#[derive(Deserialize, Serialize)]
 type TxHexWithBlockCount = (String, u64, u64);
-/*struct TxHexWithBlockCount {
-    hex: String,
-    time: u64,
-    height: u64,
-}*/
 
 #[derive(Clone)]
 pub struct Explorer<D>
@@ -48,10 +42,11 @@ async fn get_explorer() -> &'static DefaultExplorer {
     EXPLORER
         .get_or_init(|| async {
             let pivx_definition = PIVXDefinition;
-            let pivx = Binary::new_by_fetching(&pivx_definition)
+            let mut pivx = Binary::new_by_fetching(&pivx_definition)
                 .await
                 .expect("Failed to run PIVX");
-            let pivx_rpc = PIVXRpc::new(&format!("http://127.0.0.1:{}", RPC_PORT))
+            pivx.wait_for_load(&pivx_definition).await.unwrap();
+            let pivx_rpc = PIVXRpc::new(&format!("http://127.0.0.1:{}", RPC_PORT), pivx)
                 .await
                 .unwrap();
             // FIXME: refactor this to accept HOME
@@ -61,7 +56,6 @@ async fn get_explorer() -> &'static DefaultExplorer {
                     .unwrap(),
                 pivx_rpc.clone(),
             );
-            std::mem::forget(pivx);
 
             let explorer = Explorer::new(address_index, pivx_rpc);
             // Cloning is very cheap, it's just a Pathbuf and some Arcs

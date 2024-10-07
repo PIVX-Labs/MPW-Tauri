@@ -1,6 +1,7 @@
 pub mod json_rpc;
 mod test;
 
+use crate::binary::Binary;
 use crate::error::PIVXErrors;
 
 use super::block_source::{BlockSource, BlockSourceType, IndexedBlockSource, PinnedStream};
@@ -21,6 +22,7 @@ use std::task::{Context, Poll};
 #[derive(Clone)]
 pub struct PIVXRpc {
     client: HttpClient,
+    _pivx: Arc<Binary>,
 }
 
 type BlockStreamFuture = Pin<Box<dyn Future<Output = Option<(Block, u64)>> + Send>>;
@@ -90,7 +92,7 @@ impl Stream for BlockStream {
 }
 
 impl PIVXRpc {
-    pub async fn new(url: &str) -> crate::error::Result<Self> {
+    pub async fn new(url: &str, pivx: Binary) -> crate::error::Result<Self> {
         let mut headers = HeaderMap::new();
         let credentials = format!("{}:{}", crate::RPC_USERNAME, crate::RPC_PASSWORD);
         headers.insert(
@@ -101,6 +103,7 @@ impl PIVXRpc {
         );
         Ok(PIVXRpc {
             client: HttpClient::builder().set_headers(headers).build(url)?,
+            _pivx: Arc::new(pivx),
         })
     }
 

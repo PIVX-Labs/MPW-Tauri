@@ -23,6 +23,9 @@ impl BinaryDefinition for TestBinary {
     fn get_binary_args(&self, _: &Path) -> Result<Vec<String>, PIVXErrors> {
         unimplemented!()
     }
+    async fn wait_for_load(&self, _handle: &mut Child) -> crate::error::Result<()> {
+        Ok(())
+    }
 }
 mod pivx_fetch {
     use super::*;
