@@ -8,6 +8,7 @@ pub struct Block {
 #[derive(Deserialize, Debug, Clone)]
 pub struct Tx {
     pub txid: String,
+    #[serde(deserialize_with = "skip_invalid")]
     pub vin: Vec<Vin>,
 
     #[serde(deserialize_with = "concat_addresses")]
@@ -27,7 +28,9 @@ struct ScriptPubKey {
 
 #[derive(Deserialize, Debug, Clone, Eq, Hash, PartialEq)]
 pub struct Vin {
+    #[serde(default)]
     pub txid: String,
+    #[serde(default)]
     pub n: u32,
 }
 
@@ -43,6 +46,13 @@ where
         }
     }
     Ok(addresses)
+}
+
+fn skip_invalid<'de, D>(deserializer: D) -> Result<Vec<Vin>, D::Error>
+    where D: Deserializer<'de>
+{
+    let vins: Vec<Vin> = Vec::deserialize(deserializer)?;
+    Ok(vins.into_iter().filter_map(|e|if e.txid.is_empty() {None}else { Some(e) }).collect())
 }
 
 #[cfg(test)]
@@ -102,6 +112,10 @@ pub mod test {
             {
                 "txid": "485",
                 "n": 0
+            },
+            {
+                "coinbase": "anoenar",
+                "sequence": 134134134
             }],
             "vout": [
                 {

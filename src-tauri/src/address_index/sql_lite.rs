@@ -4,6 +4,7 @@ use super::database::Database;
 use super::types::{Tx, Vin};
 use rusqlite::{params, Connection};
 
+#[derive(Clone, Debug)]
 pub struct SqlLite {
     path: PathBuf,
     //connection: Connection,

@@ -20,6 +20,7 @@ type TxHexWithBlockCount = (String, u64, u64);
     height: u64,
 }*/
 
+#[derive(Clone)]
 pub struct Explorer<D, B>
 where
     D: Database,
@@ -33,8 +34,8 @@ type DefaultExplorer = Explorer<SqlLite, PIVXRpc>;
 
 impl<D, B> Explorer<D, B>
 where
-    D: Database + Send,
-    B: BlockSource + Send,
+    D: Database + Send + Clone,
+    B: BlockSource + Send + Clone,
 {
     fn new(address_index: AddressIndex<D, B>, rpc: PIVXRpc) -> Self {
         Self {
@@ -42,6 +43,7 @@ where
             pivx_rpc: rpc,
         }
     }
+
 }
 
 static EXPLORER: OnceCell<DefaultExplorer> = OnceCell::const_new();
@@ -64,7 +66,17 @@ async fn get_explorer() -> &'static DefaultExplorer {
                 pivx_rpc.clone(),
             );
             std::mem::forget(pivx);
-            Explorer::new(address_index, pivx_rpc)
+	    
+            let explorer = Explorer::new(address_index, pivx_rpc);
+	    // Cloning is very cheap, it's just a Pathbuf and some Arcs
+	    let explorer_clone = explorer.clone();
+	    tokio::spawn(async move {
+		if let Err(err) = explorer_clone.sync().await {
+		    eprintln!("Warning: Syncing failed with error {}", err);
+		}
+	    });
+
+	    explorer
         })
         .await
 }
@@ -72,8 +84,8 @@ async fn get_explorer() -> &'static DefaultExplorer {
 #[generate_global_functions]
 impl<D, B> Explorer<D, B>
 where
-    D: Database + Send,
-    B: BlockSource + Send,
+    D: Database + Send + Clone,
+    B: BlockSource + Send + Clone,
 {
     pub async fn get_block(&self, block_height: u64) -> crate::error::Result<String> {
         let block_hash: String = self
@@ -156,5 +168,9 @@ where
         self.pivx_rpc
             .call("sendrawtransaction", rpc_params![transaction])
             .await
+    }
+
+    pub async fn sync(&self) -> crate::error::Result<()> {
+	self.address_index.clone().sync().await
     }
 }
