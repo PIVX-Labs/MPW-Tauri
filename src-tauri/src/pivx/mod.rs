@@ -7,6 +7,7 @@ use std::fs::File;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 use tar::Archive;
+use tokio::io::{AsyncBufReadExt, BufReader};
 
 use crate::binary::BinaryDefinition;
 
@@ -82,5 +83,28 @@ impl BinaryDefinition for PIVXDefinition {
             crate::RPC_PASSWORD,
         );
         Ok(args.split(" ").map(|s| s.to_string()).collect::<Vec<_>>())
+    }
+
+    async fn wait_for_load(&self, handle: &mut tokio::process::Child) -> crate::error::Result<()> {
+        let stdout = handle.stdout.take();
+        match stdout {
+            Some(stdout) => {
+                let mut reader = BufReader::new(stdout);
+                let mut line = String::new();
+                loop {
+                    let read_bytes = reader.read_line(&mut line).await?;
+                    if read_bytes == 0 {
+                        return Err(PIVXErrors::PivxdStopped);
+                    }
+                    if line.contains("asking peer for sporks") {
+                        break;
+                    }
+                }
+            }
+            None => eprintln!(
+                "Warning: couldn't wait for load because no stdout is attached to the handle."
+            ),
+        }
+        Ok(())
     }
 }
