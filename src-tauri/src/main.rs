@@ -52,7 +52,7 @@ fn main() {
             explorer_get_transaction,
             explorer_send_transaction,
             explorer_get_tx_from_vin,
-	    explorer_sync,
+            explorer_sync,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

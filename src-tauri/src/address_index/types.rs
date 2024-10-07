@@ -49,10 +49,14 @@ where
 }
 
 fn skip_invalid<'de, D>(deserializer: D) -> Result<Vec<Vin>, D::Error>
-    where D: Deserializer<'de>
+where
+    D: Deserializer<'de>,
 {
     let vins: Vec<Vin> = Vec::deserialize(deserializer)?;
-    Ok(vins.into_iter().filter_map(|e|if e.txid.is_empty() {None}else { Some(e) }).collect())
+    Ok(vins
+        .into_iter()
+        .filter_map(|e| if e.txid.is_empty() { None } else { Some(e) })
+        .collect())
 }
 
 #[cfg(test)]

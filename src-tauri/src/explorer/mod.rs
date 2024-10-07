@@ -43,7 +43,6 @@ where
             pivx_rpc: rpc,
         }
     }
-
 }
 
 static EXPLORER: OnceCell<DefaultExplorer> = OnceCell::const_new();
@@ -66,17 +65,17 @@ async fn get_explorer() -> &'static DefaultExplorer {
                 pivx_rpc.clone(),
             );
             std::mem::forget(pivx);
-	    
-            let explorer = Explorer::new(address_index, pivx_rpc);
-	    // Cloning is very cheap, it's just a Pathbuf and some Arcs
-	    let explorer_clone = explorer.clone();
-	    tokio::spawn(async move {
-		if let Err(err) = explorer_clone.sync().await {
-		    eprintln!("Warning: Syncing failed with error {}", err);
-		}
-	    });
 
-	    explorer
+            let explorer = Explorer::new(address_index, pivx_rpc);
+            // Cloning is very cheap, it's just a Pathbuf and some Arcs
+            let explorer_clone = explorer.clone();
+            tokio::spawn(async move {
+                if let Err(err) = explorer_clone.sync().await {
+                    eprintln!("Warning: Syncing failed with error {}", err);
+                }
+            });
+
+            explorer
         })
         .await
 }
@@ -171,6 +170,6 @@ where
     }
 
     pub async fn sync(&self) -> crate::error::Result<()> {
-	self.address_index.clone().sync().await
+        self.address_index.clone().sync().await
     }
 }
