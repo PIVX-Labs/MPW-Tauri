@@ -1,23 +1,21 @@
 use super::types::Block;
 use futures::stream::Stream;
-use futures::Future;
-use serde_json::value::Index;
 use std::{ops::Deref, pin::Pin, sync::Arc};
 
 pub type PinnedStream<'a, T> = Pin<Box<dyn Stream<Item = T> + 'a + Send>>;
-pub type BS = Arc<dyn BlockSource + 'static + Send + Sync>;
-pub type IBS = Arc<dyn IndexedBlockSource + 'static + Send + Sync>;
+pub type Bs = Arc<dyn BlockSource + 'static + Send + Sync>;
+pub type Ibs = Arc<dyn IndexedBlockSource + 'static + Send + Sync>;
 
 #[derive(Clone)]
 pub enum BlockSourceType {
-    Regular(BS),
-    Indexed(IBS),
+    Regular(Bs),
+    Indexed(Ibs),
 }
 
 impl Deref for BlockSourceType {
     type Target = dyn BlockSource;
 
-    fn deref<'a>(&'a self) -> &'a Self::Target {
+    fn deref(&self) -> &Self::Target {
         match self {
             Self::Regular(ref d) => return d.as_ref(),
             Self::Indexed(ref d) => return d.as_ref().as_block_source(),

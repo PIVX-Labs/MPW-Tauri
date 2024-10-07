@@ -23,10 +23,12 @@ pub struct PIVXRpc {
     client: HttpClient,
 }
 
+type BlockStreamFuture = Pin<Box<dyn Future<Output = Option<(Block, u64)>> + Send>>;
+
 struct BlockStream {
     client: HttpClient,
     current_block: u64,
-    current_future: Option<Pin<Box<dyn Future<Output = Option<(Block, u64)>> + Send>>>,
+    current_future: Option<BlockStreamFuture>,
 }
 
 impl BlockStream {

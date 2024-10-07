@@ -1,15 +1,14 @@
-use error::PIVXErrors;
+use crate::error::PIVXErrors;
 use jsonrpsee::rpc_params;
 use serde::Deserialize;
 use std::path::PathBuf;
 use tokio::sync::OnceCell;
-// TODO: remove this import
-use crate::*;
 
 use crate::address_index::{
-    block_source::BlockSource, database::Database, pivx_rpc::PIVXRpc, sql_lite::SqlLite,
-    types::Vin, AddressIndex,
+    database::Database, pivx_rpc::PIVXRpc, sql_lite::SqlLite, types::Vin, AddressIndex,
 };
+use crate::binary::Binary;
+use crate::{PIVXDefinition, RPC_PORT};
 use global_function_macro::generate_global_functions;
 
 //#[derive(Deserialize, Serialize)]
@@ -49,7 +48,7 @@ async fn get_explorer() -> &'static DefaultExplorer {
     EXPLORER
         .get_or_init(|| async {
             let pivx_definition = PIVXDefinition;
-            let pivx = binary::Binary::new_by_fetching(&pivx_definition)
+            let pivx = Binary::new_by_fetching(&pivx_definition)
                 .await
                 .expect("Failed to run PIVX");
             let pivx_rpc = PIVXRpc::new(&format!("http://127.0.0.1:{}", RPC_PORT))
