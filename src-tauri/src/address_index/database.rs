@@ -1,3 +1,5 @@
+use futures::Future;
+
 use super::types::{Tx, Vin};
 
 pub trait Database {
@@ -15,6 +17,21 @@ pub trait Database {
             self.store_tx(&tx).await?;
         }
         Ok(())
+    }
+
+    /**
+     * Update block count lower bound, if available.
+     * Must not be called with block_count lower than a previous call
+     */
+    async fn update_block_count(&mut self, _block_count: u64) -> crate::error::Result<()> {
+        Ok(())
+    }
+
+    /**
+     * Return a lower bound on the last indexed block for faster syncing
+     */
+    fn get_last_indexed_block(&self) -> impl Future<Output = crate::error::Result<u64>> {
+        async { Ok(0) }
     }
 }
 

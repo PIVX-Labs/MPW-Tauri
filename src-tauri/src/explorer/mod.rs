@@ -21,23 +21,21 @@ type TxHexWithBlockCount = (String, u64, u64);
 }*/
 
 #[derive(Clone)]
-pub struct Explorer<D, B>
+pub struct Explorer<D>
 where
     D: Database,
-    B: BlockSource,
 {
-    address_index: AddressIndex<D, B>,
+    address_index: AddressIndex<D>,
     pivx_rpc: PIVXRpc,
 }
 
-type DefaultExplorer = Explorer<SqlLite, PIVXRpc>;
+type DefaultExplorer = Explorer<SqlLite>;
 
-impl<D, B> Explorer<D, B>
+impl<D> Explorer<D>
 where
     D: Database + Send + Clone,
-    B: BlockSource + Send + Clone,
 {
-    fn new(address_index: AddressIndex<D, B>, rpc: PIVXRpc) -> Self {
+    fn new(address_index: AddressIndex<D>, rpc: PIVXRpc) -> Self {
         Self {
             address_index,
             pivx_rpc: rpc,
@@ -81,10 +79,9 @@ async fn get_explorer() -> &'static DefaultExplorer {
 }
 
 #[generate_global_functions]
-impl<D, B> Explorer<D, B>
+impl<D> Explorer<D>
 where
     D: Database + Send + Clone,
-    B: BlockSource + Send + Clone,
 {
     pub async fn get_block(&self, block_height: u64) -> crate::error::Result<String> {
         let block_hash: String = self

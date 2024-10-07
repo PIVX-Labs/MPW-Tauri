@@ -71,9 +71,7 @@ impl Iterator for BlockFileIterator {
 }
 
 impl BlockSource for BlockFileSource {
-    fn get_blocks(
-        &mut self,
-    ) -> crate::error::Result<Pin<Box<dyn Stream<Item = Block> + '_ + Send>>> {
+    fn get_blocks(&self) -> crate::error::Result<Pin<Box<dyn Stream<Item = Block> + '_ + Send>>> {
         let block_file_iterator = BlockFileIterator::new(&self.db_path);
         Ok(Box::pin(stream::iter(block_file_iterator)))
     }
