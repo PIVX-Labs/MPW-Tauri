@@ -75,6 +75,13 @@ where
     pub async fn get_txid_from_vin(&self, vin: &Vin) -> crate::error::Result<Option<String>> {
         self.database.get_txid_from_vin(vin).await
     }
+
+    pub fn set_block_source<T>(&mut self, block_source: T)
+    where
+        T: BlockSource + Send + Sync + 'static,
+    {
+        self.block_source = block_source.instantiate();
+    }
 }
 
 #[cfg(test)]

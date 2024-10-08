@@ -1,8 +1,10 @@
+use crate::address_index::block_file_source::BlockFileSource;
 use crate::error::PIVXErrors;
 use jsonrpsee::rpc_params;
 use serde::Deserialize;
 use std::path::PathBuf;
-use tokio::sync::OnceCell;
+use std::sync::Arc;
+use tokio::sync::{OnceCell, RwLock};
 
 use crate::address_index::{
     database::Database, pivx_rpc::PIVXRpc, sql_lite::SqlLite, types::Vin, AddressIndex,
@@ -18,7 +20,7 @@ pub struct Explorer<D>
 where
     D: Database,
 {
-    address_index: AddressIndex<D>,
+    address_index: Arc<RwLock<AddressIndex<D>>>,
     pivx_rpc: PIVXRpc,
 }
 
@@ -30,25 +32,34 @@ where
 {
     fn new(address_index: AddressIndex<D>, rpc: PIVXRpc) -> Self {
         Self {
-            address_index,
+            address_index: Arc::new(RwLock::new(address_index)),
             pivx_rpc: rpc,
         }
     }
 }
 
 static EXPLORER: OnceCell<DefaultExplorer> = OnceCell::const_new();
+static PIVX_RPC: OnceCell<PIVXRpc> = OnceCell::const_new();
 
-async fn get_explorer() -> &'static DefaultExplorer {
-    EXPLORER
+async fn get_pivx_rpc() -> &'static PIVXRpc {
+    PIVX_RPC
         .get_or_init(|| async {
             let pivx_definition = PIVXDefinition;
             let mut pivx = Binary::new_by_fetching(&pivx_definition)
                 .await
                 .expect("Failed to run PIVX");
             pivx.wait_for_load(&pivx_definition).await.unwrap();
-            let pivx_rpc = PIVXRpc::new(&format!("http://127.0.0.1:{}", RPC_PORT), pivx)
+            PIVXRpc::new(&format!("http://127.0.0.1:{}", RPC_PORT), pivx)
                 .await
-                .unwrap();
+                .unwrap()
+        })
+        .await
+}
+
+async fn get_explorer() -> &'static DefaultExplorer {
+    EXPLORER
+        .get_or_init(|| async {
+            let pivx_rpc = get_pivx_rpc().await;
             // FIXME: refactor this to accept HOME
             let address_index = AddressIndex::new(
                 SqlLite::new(PathBuf::from("/home/duddino/test.sqlite"))
@@ -99,7 +110,13 @@ where
     ) -> crate::error::Result<Vec<TxHexWithBlockCount>> {
         let mut txs = vec![];
         for address in addresses {
-            for txid in self.address_index.get_address_txids(address).await? {
+            for txid in self
+                .address_index
+                .read()
+                .await
+                .get_address_txids(address)
+                .await?
+            {
                 if let Ok(tx) = self.get_transaction(&txid).await {
                     txs.push(tx);
                 }
@@ -112,7 +129,12 @@ where
         &self,
         vin: Vin,
     ) -> crate::error::Result<Option<TxHexWithBlockCount>> {
-        let txid = self.address_index.get_txid_from_vin(&vin).await?;
+        let txid = self
+            .address_index
+            .read()
+            .await
+            .get_txid_from_vin(&vin)
+            .await?;
         if let Some(txid) = txid {
             Ok(self.get_transaction(&txid).await.ok())
         } else {
@@ -160,6 +182,25 @@ where
     }
 
     pub async fn sync(&self) -> crate::error::Result<()> {
-        self.address_index.clone().sync().await
+        self.address_index.write().await.sync().await
+    }
+
+    pub async fn switch_to_rpc_source(&self) -> crate::error::Result<()> {
+        self.address_index
+            .write()
+            .await
+            .set_block_source(get_pivx_rpc().await.clone());
+        Ok(())
+    }
+
+    pub async fn switch_to_blockfile_source(&self) -> crate::error::Result<()> {
+        // FIXME: Actually use a real path
+        let block_file_source =
+            BlockFileSource::new("/home/duddino/.local/share/pivx-rust/.pivx/blocks");
+        self.address_index
+            .write()
+            .await
+            .set_block_source(block_file_source);
+        Ok(())
     }
 }
