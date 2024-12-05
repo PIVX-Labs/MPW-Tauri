@@ -25,6 +25,8 @@ fn main() {
             explorer_send_transaction,
             explorer_get_tx_from_vin,
             explorer_sync,
+            explorer_switch_to_rpc_source,
+            explorer_switch_to_blockfile_source,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
