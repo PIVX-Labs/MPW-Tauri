@@ -68,7 +68,7 @@ async fn get_explorer() -> &'static DefaultExplorer {
                 pivx_rpc.clone(),
             );
 
-            let explorer = Explorer::new(address_index, pivx_rpc);
+            let explorer = Explorer::new(address_index, pivx_rpc.clone());
             // Cloning is very cheap, it's just a Pathbuf and some Arcs
             let explorer_clone = explorer.clone();
             tokio::spawn(async move {
