@@ -27,6 +27,8 @@ fn main() {
             explorer_sync,
             explorer_switch_to_rpc_source,
             explorer_switch_to_blockfile_source,
+            explorer_is_initial_sync,
+            explorer_get_sync_progress,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

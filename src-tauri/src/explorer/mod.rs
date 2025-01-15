@@ -24,6 +24,12 @@ where
     pivx_rpc: PIVXRpc,
 }
 
+#[derive(Deserialize)]
+struct ChainInfo {
+    verificationprogress: f64,
+    initial_block_downloading: bool,
+}
+
 type DefaultExplorer = Explorer<SqlLite>;
 
 impl<D> Explorer<D>
@@ -202,5 +208,21 @@ where
             .await
             .set_block_source(block_file_source);
         Ok(())
+    }
+
+    pub async fn is_initial_sync(&self) -> crate::error::Result<bool> {
+        let chain_info: ChainInfo = self
+            .pivx_rpc
+            .call("getblockchaininfo", rpc_params![])
+            .await?;
+        Ok(chain_info.initial_block_downloading)
+    }
+
+    pub async fn get_sync_progress(&self) -> crate::error::Result<f64> {
+        let chain_info: ChainInfo = self
+            .pivx_rpc
+            .call("getblockchaininfo", rpc_params![])
+            .await?;
+        Ok(chain_info.verificationprogress)
     }
 }
