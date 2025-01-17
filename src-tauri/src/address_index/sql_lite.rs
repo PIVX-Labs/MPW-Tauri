@@ -62,6 +62,7 @@ impl Database for SqlLite {
                     "INSERT OR IGNORE INTO transactions (txid, address) VALUES (?1, ?2);",
                     params![txid, &address],
                 )?;
+
                 for vin in &tx.vin {
                     connection.execute(
                         "INSERT OR IGNORE INTO vin (txid, n, spender_txid) VALUES (?1, ?2, ?3)",
@@ -149,6 +150,17 @@ mod test {
                 .await?,
             Some("txid2".to_owned())
         );
+
+        assert_eq!(
+            sql_lite
+                .get_txid_from_vin(&Vin {
+                    txid: "spenttxid2".to_owned(),
+                    n: 1
+                })
+                .await?,
+            Some("txid2".to_owned())
+        );
+
         assert_eq!(
             sql_lite
                 .get_txid_from_vin(&Vin {
