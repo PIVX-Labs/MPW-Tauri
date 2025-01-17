@@ -31,6 +31,7 @@ pub struct Vin {
     #[serde(default)]
     pub txid: String,
     #[serde(default)]
+    #[serde(rename = "vout")]
     pub n: u32,
 }
 
@@ -86,6 +87,10 @@ pub mod test {
                         },
                         Vin {
                             txid: "spenttxid2".to_owned(),
+                            n: 1,
+                        },
+                        Vin {
+                            txid: "spenttxid2".to_owned(),
                             n: 5,
                         },
                     ],
@@ -111,11 +116,11 @@ pub mod test {
             "txid": "123",
             "vin": [{
                 "txid": "584",
-                "n": 3
+                "vout": 3
             },
             {
                 "txid": "485",
-                "n": 0
+                "vout": 0
             },
             {
                 "coinbase": "anoenar",
