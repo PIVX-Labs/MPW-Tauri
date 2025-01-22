@@ -229,7 +229,7 @@ impl AddressExtractor {
             if i == 1 && first_vout_empty {
                 is_proof_of_stake = true;
             }
-            if let Some(first_vin) = tx.vin.get(0) {
+            if let Some(first_vin) = tx.vin.first() {
                 // We're not interested in coinbase/coinstake txs
                 if first_vin.txid
                     == "0000000000000000000000000000000000000000000000000000000000000000"
