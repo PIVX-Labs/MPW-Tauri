@@ -44,27 +44,34 @@ impl Iterator for BlockFileIterator {
     type Item = Block;
 
     fn next(&mut self) -> Option<Self::Item> {
-        let mut file = match &self.open_file {
-            Some(file) => file,
-            None => {
-                println!(
-                    "opening file {:?}...",
-                    self.db_path.join(format!("blk{:0>5}.dat", self.counter))
-                );
-                self.open_file = Some(
-                    File::open(self.db_path.join(format!("blk{:0>5}.dat", self.counter))).ok()?,
-                );
-                self.counter += 1;
-                self.open_file.as_ref().unwrap()
-            }
-        };
-        let block = AddressExtractor::get_addresses_from_block(&mut file);
-        match block {
-            Ok(block) => Some(block),
-            Err(PIVXErrors::InvalidBlock) => self.next(),
-            Err(_) => {
-                self.open_file = None;
-                self.next()
+        loop {
+            let mut file = match &self.open_file {
+                Some(file) => file,
+                None => {
+                    self.open_file = Some(
+                        File::open(self.db_path.join(format!("blk{:0>5}.dat", self.counter)))
+                            .ok()?,
+                    );
+                    println!(
+                        "opened file {:?}...",
+                        self.db_path.join(format!("blk{:0>5}.dat", self.counter))
+                    );
+                    self.counter += 1;
+                    self.open_file.as_ref().unwrap()
+                }
+            };
+            let block = AddressExtractor::get_addresses_from_block(&mut file);
+            match block {
+                Ok(block) => break Some(block),
+                Err(PIVXErrors::InvalidBlock) => {}
+                Err(e) => {
+                    println!("{:?}", e);
+                    self.open_file = None;
+                    println!(
+                        "Done with file {:?}",
+                        self.db_path.join(format!("blk{:0>5}.dat", self.counter))
+                    );
+                }
             }
         }
     }
