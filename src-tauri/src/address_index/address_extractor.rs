@@ -225,11 +225,19 @@ impl AddressExtractor {
 
         let mut is_proof_of_stake = false;
         for i in 0..txs {
-            let (tx, first_vout_empty) = Self::get_addresses_from_tx(byte_source)?;
+            let (mut tx, first_vout_empty) = Self::get_addresses_from_tx(byte_source)?;
             if i == 1 && first_vout_empty {
                 is_proof_of_stake = true;
             }
-            if !tx.addresses.is_empty() {
+            if let Some(first_vin) = tx.vin.get(0) {
+                // We're not interested in coinbase/coinstake txs
+                if first_vin.txid
+                    == "0000000000000000000000000000000000000000000000000000000000000000"
+                {
+                    tx.vin.remove(0);
+                }
+            }
+            if !(tx.addresses.is_empty() && tx.vin.is_empty()) {
                 block.txs.push(tx);
             }
         }
@@ -338,11 +346,19 @@ mod test {
     fn it_gets_address_from_sapling_block() -> crate::error::Result<()> {
         let bytes = hex::decode(include_str!("test/sapling_block.hex")).unwrap();
         let block = AddressExtractor::get_addresses_from_block(&mut Cursor::new(bytes))?;
-        assert_eq!(block.txs.len(), 2);
+        assert_eq!(block.txs.len(), 3);
         assert_eq!(
             block.txs[0].txid,
             "3f64c3328bac6d5bb8c002a46cd767e367ef6f9dd2298ba04ca51c2ef4f0cc2c"
         );
+        assert_eq!(
+            block.txs[0].vin[0],
+            Vin {
+                txid: "0ed21cb2aebc007881c080c2efba39c5cb4387dabc1a6ac15afcab322d2f478d".into(),
+                n: 4,
+            }
+        );
+
         assert_eq!(
             block.txs[0].addresses,
             vec![
@@ -350,12 +366,26 @@ mod test {
                 "DM2TWw1NvJ7sPxNXPZ8Cmn4DNGxYfa6yfX"
             ]
         );
+
         assert_eq!(
             block.txs[1].txid,
-            "997938165e83478f25bd14b203e492b9ce39a3979384527868f72fd394e68a45"
+            "374a46e4b905e1709fee2e3e6451be7b144af57d96d766f6fbbfc45d79d91cc7"
         );
         assert_eq!(
-            block.txs[1].addresses,
+            block.txs[1].vin[0],
+            Vin {
+                txid: "401f6c52e7ae71ce31db1f05f0c4e506fa090cc55bacfebdc000dbbf41d37f1e".into(),
+                n: 0,
+            }
+        );
+        assert_eq!(block.txs[1].addresses, vec![] as Vec<String>);
+        assert_eq!(
+            block.txs[2].txid,
+            "997938165e83478f25bd14b203e492b9ce39a3979384527868f72fd394e68a45"
+        );
+        assert_eq!(block.txs[2].vin, vec![] as Vec<Vin>);
+        assert_eq!(
+            block.txs[2].addresses,
             vec!["DExue43LyQduJzkUwFq53LfSppAzdRGWU2"]
         );
         Ok(())
