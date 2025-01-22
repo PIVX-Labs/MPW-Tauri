@@ -62,15 +62,16 @@ impl Database for SqlLite {
                     "INSERT OR IGNORE INTO transactions (txid, address) VALUES (?1, ?2);",
                     params![txid, &address],
                 )?;
+            }
 
-                for vin in &tx.vin {
-                    connection.execute(
-                        "INSERT OR IGNORE INTO vin (txid, n, spender_txid) VALUES (?1, ?2, ?3)",
-                        params![vin.txid, vin.n, txid],
-                    )?;
-                }
+            for vin in &tx.vin {
+                connection.execute(
+                    "INSERT OR IGNORE INTO vin (txid, n, spender_txid) VALUES (?1, ?2, ?3)",
+                    params![vin.txid, vin.n, txid],
+                )?;
             }
         }
+
         connection.commit()?;
         Ok(())
     }
