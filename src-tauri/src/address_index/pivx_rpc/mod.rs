@@ -39,7 +39,7 @@ impl BlockStream {
         let hash: String = client
             .request::<_, (), _>("getblockhash", rpc_params![current_block])
             .await
-            .unwrap();
+            .ok()?;
         let block: Result<Block, _> = client
             .request::<_, (), _>("getblock", rpc_params![hash, 2])
             .await;

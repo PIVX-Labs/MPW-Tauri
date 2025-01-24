@@ -22,6 +22,8 @@ where
 {
     address_index: Arc<RwLock<AddressIndex<D>>>,
     pivx_rpc: PIVXRpc,
+    indexed_blocks: Arc<RwLock<u64>>,
+    done_indexing: Arc<RwLock<bool>>,
 }
 
 #[derive(Deserialize)]
@@ -37,15 +39,20 @@ where
     D: Database + Send + Clone,
 {
     fn new(address_index: AddressIndex<D>, rpc: PIVXRpc) -> Self {
+        let indexed_blocks = address_index.indexed_blocks.clone();
         Self {
             address_index: Arc::new(RwLock::new(address_index)),
             pivx_rpc: rpc,
+            indexed_blocks,
+            done_indexing: Arc::new(RwLock::new(false)),
         }
     }
 }
 
 static EXPLORER: OnceCell<DefaultExplorer> = OnceCell::const_new();
 static PIVX_RPC: OnceCell<PIVXRpc> = OnceCell::const_new();
+// If more than `LAST_BLOCK_GAP` are left to sync, prefer BlockFileSource
+const LAST_BLOCK_GAP: u64 = 10_000;
 
 async fn get_pivx_rpc() -> &'static PIVXRpc {
     PIVX_RPC
@@ -78,6 +85,11 @@ async fn get_explorer() -> &'static DefaultExplorer {
             // Cloning is very cheap, it's just a Pathbuf and some Arcs
             let explorer_clone = explorer.clone();
             tokio::spawn(async move {
+                while match explorer_clone.is_initial_sync().await {
+                    Ok(is_initial_sync) => is_initial_sync,
+                    Err(_) => true,
+                } {}
+
                 if let Err(err) = explorer_clone.sync().await {
                     eprintln!("Warning: Syncing failed with error {}", err);
                 }
@@ -188,7 +200,28 @@ where
     }
 
     pub async fn sync(&self) -> crate::error::Result<()> {
-        self.address_index.write().await.sync().await
+        let current_block = self.get_block_count().await?;
+        let last_indexed_block = self
+            .address_index
+            .read()
+            .await
+            .get_last_indexed_block()
+            .await?;
+
+        if current_block - last_indexed_block >= LAST_BLOCK_GAP {
+            self.switch_to_blockfile_source().await?;
+        }
+
+        self.address_index.write().await.sync().await?;
+        self.address_index
+            .write()
+            .await
+            // Leave 100 blocks as buffer
+            .update_block_count(self.get_block_count().await? - 100)
+            .await?;
+        self.switch_to_rpc_source().await?;
+        *self.done_indexing.write().await = true;
+        Ok(())
     }
 
     pub async fn switch_to_rpc_source(&self) -> crate::error::Result<()> {
@@ -224,5 +257,13 @@ where
             .call("getblockchaininfo", rpc_params![])
             .await?;
         Ok(chain_info.verificationprogress)
+    }
+
+    pub async fn get_index_progress(&self) -> crate::error::Result<f64> {
+        Ok((*self.indexed_blocks.read().await as f64) / (self.get_block_count().await? as f64))
+    }
+
+    pub async fn index_is_done(&self) -> crate::error::Result<bool> {
+        Ok(*self.done_indexing.read().await)
     }
 }
