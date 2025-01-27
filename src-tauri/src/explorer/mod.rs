@@ -4,7 +4,9 @@ use jsonrpsee::rpc_params;
 use serde::Deserialize;
 use std::path::PathBuf;
 use std::sync::Arc;
+use std::time::Duration;
 use tokio::sync::{OnceCell, RwLock};
+use tokio::time::sleep;
 
 use crate::address_index::{
     database::Database, pivx_rpc::PIVXRpc, sql_lite::SqlLite, types::Vin, AddressIndex,
@@ -222,7 +224,10 @@ where
             .await?;
         self.switch_to_rpc_source().await?;
         *self.done_indexing.write().await = true;
-        Ok(())
+        loop {
+            sleep(Duration::from_secs(60)).await;
+            self.address_index.write().await.sync().await?;
+        }
     }
 
     pub async fn switch_to_rpc_source(&self) -> crate::error::Result<()> {
