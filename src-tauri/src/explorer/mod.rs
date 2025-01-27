@@ -73,11 +73,12 @@ async fn get_explorer() -> &'static DefaultExplorer {
     EXPLORER
         .get_or_init(|| async {
             let pivx_rpc = get_pivx_rpc().await;
-            // FIXME: refactor this to accept HOME
+            let dir = dirs::data_dir()
+                .ok_or(PIVXErrors::NoDataDir)
+                .unwrap()
+                .join("pivx-rust");
             let address_index = AddressIndex::new(
-                SqlLite::new(PathBuf::from("/home/duddino/test.sqlite"))
-                    .await
-                    .unwrap(),
+                SqlLite::new(dir.join("test.sqlite")).await.unwrap(),
                 pivx_rpc.clone(),
             );
 
@@ -233,9 +234,12 @@ where
     }
 
     pub async fn switch_to_blockfile_source(&self) -> crate::error::Result<()> {
-        // FIXME: Actually use a real path
-        let block_file_source =
-            BlockFileSource::new("/home/duddino/.local/share/pivx-rust/.pivx/blocks");
+        let dir = dirs::data_dir()
+            .ok_or(PIVXErrors::NoDataDir)?
+            .join("pivx-rust")
+            .join(".pivx")
+            .join("blocks");
+        let block_file_source = BlockFileSource::new(dir);
         self.address_index
             .write()
             .await
