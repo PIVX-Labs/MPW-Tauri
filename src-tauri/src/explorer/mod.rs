@@ -2,9 +2,9 @@ use crate::address_index::block_file_source::BlockFileSource;
 use crate::error::PIVXErrors;
 use jsonrpsee::rpc_params;
 use serde::Deserialize;
-use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Duration;
+use sysinfo::{ProcessesToUpdate, Signal, System};
 use tokio::sync::{OnceCell, RwLock};
 use tokio::time::sleep;
 
@@ -56,17 +56,52 @@ static PIVX_RPC: OnceCell<PIVXRpc> = OnceCell::const_new();
 // If more than `LAST_BLOCK_GAP` are left to sync, prefer BlockFileSource
 const LAST_BLOCK_GAP: u64 = 10_000;
 
+fn kill_running_pivxd() -> crate::error::Result<usize> {
+    let mut system = System::new_all();
+    system.refresh_processes(ProcessesToUpdate::All, true);
+    let mut killed = 0;
+
+    for (_pid, process) in system.processes() {
+        let name = process.name();
+        if name == "pivxd" {
+            if let Ok(_) = process.kill_with_and_wait(Signal::Term) {
+                killed += 1;
+            }
+        }
+    }
+
+    Ok(killed)
+}
+
 async fn get_pivx_rpc() -> &'static PIVXRpc {
     PIVX_RPC
         .get_or_init(|| async {
-            let pivx_definition = PIVXDefinition;
-            let mut pivx = Binary::new_by_fetching(&pivx_definition)
-                .await
-                .expect("Failed to run PIVX");
-            pivx.wait_for_load(&pivx_definition).await.unwrap();
-            PIVXRpc::new(&format!("http://127.0.0.1:{}", RPC_PORT), pivx)
-                .await
-                .unwrap()
+            loop {
+                let pivx_definition = PIVXDefinition;
+                let mut pivx = Binary::new_by_fetching(&pivx_definition)
+                    .await
+                    .expect("Failed to run PIVX");
+                let result = pivx.wait_for_load(&pivx_definition).await;
+                match result {
+                    Err(PIVXErrors::PivxdAlreadyRunning) => {
+                        if let Ok(killed) = kill_running_pivxd() {
+                            if killed == 0 {
+                                panic!("Lock in .pivx folder, but no daemon is running")
+                            }
+                            continue;
+                        } else {
+                            panic!("Failed to kill pivx process")
+                        }
+                    }
+                    Err(e) => {
+                        panic!("{}", e)
+                    }
+                    Ok(()) => {}
+                }
+                return PIVXRpc::new(&format!("http://127.0.0.1:{}", RPC_PORT), pivx)
+                    .await
+                    .unwrap();
+            }
         })
         .await
 }
