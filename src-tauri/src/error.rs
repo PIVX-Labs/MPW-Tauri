@@ -45,6 +45,9 @@ pub enum PIVXErrors {
 
     #[error("PIVXD was stopped before loading was finished")]
     PivxdStopped,
+
+    #[error("PIVXD is already running")]
+    PivxdAlreadyRunning,
 }
 
 pub type Result<T> = std::result::Result<T, PIVXErrors>;

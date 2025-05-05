@@ -92,9 +92,13 @@ impl BinaryDefinition for PIVXDefinition {
                 let mut reader = BufReader::new(stdout);
                 let mut line = String::new();
                 loop {
+                    line.clear();
                     let read_bytes = reader.read_line(&mut line).await?;
                     if read_bytes == 0 {
                         return Err(PIVXErrors::PivxdStopped);
+                    }
+                    if line.contains("PIVX Core is probably already running.") {
+                        return Err(PIVXErrors::PivxdAlreadyRunning);
                     }
                     if line.contains("asking peer for sporks") {
                         break;
