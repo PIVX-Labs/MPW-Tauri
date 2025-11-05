@@ -4,9 +4,11 @@
   "version": "0.1.0",
   "type": "module",
   "scripts": {
-    "tauri": "tauri"
+    "tauri": "tauri",
+    "dev": "concurrently \"npm --prefix MPW run dev\" \"tauri dev\""
   },
   "devDependencies": {
-    "@tauri-apps/cli": "^1"
+    "@tauri-apps/cli": "^1",
+    "concurrently": "^9.2.1"
   }
 }
