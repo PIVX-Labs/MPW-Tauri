@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "tauri": "tauri",
-    "dev": "concurrently \"npm --prefix MPW run dev\" \"tauri dev\""
+    "dev": "concurrently \"npm --prefix MPW run dev\" \"tauri dev\" --kill-others --success first"
   },
   "devDependencies": {
     "@tauri-apps/cli": "^1",
