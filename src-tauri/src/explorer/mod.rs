@@ -56,7 +56,7 @@ static PIVX_RPC: OnceCell<PIVXRpc> = OnceCell::const_new();
 // If more than `LAST_BLOCK_GAP` are left to sync, prefer BlockFileSource
 const LAST_BLOCK_GAP: u64 = 10_000;
 
-fn kill_running_pivxd() -> crate::error::Result<usize> {
+pub fn kill_running_pivxd(wait: bool) -> crate::error::Result<usize> {
     let mut system = System::new_all();
     system.refresh_processes(ProcessesToUpdate::All, true);
     let mut killed = 0;
@@ -64,7 +64,12 @@ fn kill_running_pivxd() -> crate::error::Result<usize> {
     for (_pid, process) in system.processes() {
         let name = process.name();
         if name == "pivxd" {
-            if let Ok(_) = process.kill_with_and_wait(Signal::Term) {
+            if wait {
+                if let Ok(_) = process.kill_with_and_wait(Signal::Term) {
+                    killed += 1;
+                }
+            } else {
+                process.kill_with(Signal::Term);
                 killed += 1;
             }
         }
@@ -84,7 +89,7 @@ async fn get_pivx_rpc() -> &'static PIVXRpc {
                 let result = pivx.wait_for_load(&pivx_definition).await;
                 match result {
                     Err(PIVXErrors::PivxdAlreadyRunning) => {
-                        if let Ok(killed) = kill_running_pivxd() {
+                        if let Ok(killed) = kill_running_pivxd(true) {
                             if killed == 0 {
                                 panic!("Lock in .pivx folder, but no daemon is running")
                             }
