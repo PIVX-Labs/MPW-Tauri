@@ -1,7 +1,9 @@
 // Prevents additional console window on Windows in release, DO NOT REMOVE!!
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+use crate::explorer::kill_running_pivxd;
 use pivx::PIVXDefinition;
+use tauri::Manager;
 
 mod address_index;
 mod binary;
@@ -32,6 +34,15 @@ fn main() {
             explorer_get_index_progress,
             explorer_index_is_done,
         ])
+        .on_window_event(|event| match event.event() {
+            tauri::WindowEvent::Destroyed => {
+                let window = event.window();
+                if window.label() == "main" {
+                    kill_running_pivxd(false).ok();
+                }
+            }
+            _ => {}
+        })
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
