@@ -111,3 +111,9 @@ jobs:
 
       - name: Build tauri
         run: npm run tauri build
+      - name: Upload Tauri bundles
+        uses: actions/upload-artifact@v4
+        with:
+          name: tauri-bundles
+          path: src-tauri/target/release/bundle/
+
