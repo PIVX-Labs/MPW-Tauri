@@ -2,11 +2,19 @@ use crate::address_index::block_file_source::BlockFileSource;
 use crate::error::PIVXErrors;
 use jsonrpsee::rpc_params;
 use serde::Deserialize;
+use std::io::Cursor;
+use std::path::Path;
 use std::sync::Arc;
 use std::time::Duration;
 use sysinfo::{ProcessesToUpdate, Signal, System};
+use tokio::fs::File;
+use tokio::fs::OpenOptions;
+use tokio::io::AsyncReadExt;
+use tokio::io::AsyncSeekExt;
+use tokio::io::AsyncWriteExt;
 use tokio::sync::{OnceCell, RwLock};
 use tokio::time::sleep;
+use zip::ZipArchive;
 
 use crate::address_index::{
     database::Database, pivx_rpc::PIVXRpc, sql_lite::SqlLite, types::Vin, AddressIndex,
@@ -55,6 +63,7 @@ static EXPLORER: OnceCell<DefaultExplorer> = OnceCell::const_new();
 static PIVX_RPC: OnceCell<PIVXRpc> = OnceCell::const_new();
 // If more than `LAST_BLOCK_GAP` are left to sync, prefer BlockFileSource
 const LAST_BLOCK_GAP: u64 = 10_000;
+const CHECKPOINT_URL: &'static str = "https://snapshot.rockdev.org/PIVXsnapshotLatest.zip";
 
 pub fn kill_running_pivxd(wait: bool) -> crate::error::Result<usize> {
     let mut system = System::new_all();
@@ -111,14 +120,58 @@ async fn get_pivx_rpc() -> &'static PIVXRpc {
         .await
 }
 
+async fn download_checkpoint(data_dir: &Path) -> crate::error::Result<()> {
+    println!("Downloading checkpoint");
+    let mut request = reqwest::get(CHECKPOINT_URL).await?;
+    if !request.status().is_success() {
+        return Err(PIVXErrors::ServerError);
+    }
+
+    std::fs::create_dir_all(data_dir)?;
+    let mut file = File::create(data_dir.join("checkpoint.zip")).await?;
+    while let Some(chunk) = request.chunk().await? {
+        file.write_all(&chunk).await?;
+    }
+
+    let mut file = OpenOptions::new()
+        .read(true)
+        .create(true)
+        .write(true)
+        .open(data_dir.join("checkpoint.zip"))
+        .await?;
+
+    for name in ["blocks", "chainstate", "sporks", "zerocoin"] {
+        let p = data_dir.join(name);
+        if p.is_dir() {
+            tokio::fs::remove_dir_all(p).await?;
+        }
+    }
+
+    for name in ["banlist.dat", "peers.dat"] {
+        let p = data_dir.join(name);
+        if p.is_file() {
+            tokio::fs::remove_file(p).await?;
+        }
+    }
+    let mut buf = vec![];
+    file.seek(std::io::SeekFrom::Start(0)).await?;
+    file.read_to_end(&mut buf).await?;
+    println!("Extracting checkpoint");
+    let mut zip = ZipArchive::new(Cursor::new(buf))?;
+    zip.extract(data_dir)?;
+
+    Ok(())
+}
+
 async fn get_explorer() -> &'static DefaultExplorer {
     EXPLORER
         .get_or_init(|| async {
-            let pivx_rpc = get_pivx_rpc().await;
             let dir = dirs::data_dir()
                 .ok_or(PIVXErrors::NoDataDir)
                 .unwrap()
                 .join("pivx-rust");
+            download_checkpoint(&dir.join(".pivx")).await.ok();
+            let pivx_rpc = get_pivx_rpc().await;
             let address_index = AddressIndex::new(
                 SqlLite::new(dir.join("test.sqlite")).await.unwrap(),
                 pivx_rpc.clone(),
