@@ -48,9 +48,6 @@ pub enum PIVXErrors {
 
     #[error("PIVXD is already running")]
     PivxdAlreadyRunning,
-
-    #[error("Invalid ZIP archive")]
-    InvalidZipArchive(#[from] zip::result::ZipError),
 }
 
 pub type Result<T> = std::result::Result<T, PIVXErrors>;
