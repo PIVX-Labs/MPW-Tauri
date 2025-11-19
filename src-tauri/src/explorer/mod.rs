@@ -1,5 +1,7 @@
 use crate::address_index::block_file_source::BlockFileSource;
 use crate::error::PIVXErrors;
+use async_compression::tokio::bufread::GzipDecoder;
+use futures::TryStreamExt;
 use jsonrpsee::rpc_params;
 use serde::Deserialize;
 use std::io::Cursor;
@@ -14,7 +16,7 @@ use tokio::io::AsyncSeekExt;
 use tokio::io::AsyncWriteExt;
 use tokio::sync::{OnceCell, RwLock};
 use tokio::time::sleep;
-use zip::ZipArchive;
+use tokio_util::io::StreamReader;
 
 use crate::address_index::{
     database::Database, pivx_rpc::PIVXRpc, sql_lite::SqlLite, types::Vin, AddressIndex,
@@ -63,7 +65,7 @@ static EXPLORER: OnceCell<DefaultExplorer> = OnceCell::const_new();
 static PIVX_RPC: OnceCell<PIVXRpc> = OnceCell::const_new();
 // If more than `LAST_BLOCK_GAP` are left to sync, prefer BlockFileSource
 const LAST_BLOCK_GAP: u64 = 10_000;
-const CHECKPOINT_URL: &'static str = "https://snapshot.rockdev.org/PIVXsnapshotLatest.zip";
+const CHECKPOINT_URL: &'static str = "https://snapshot.rockdev.org/PIVXsnapshotLatest.tgz";
 
 pub fn kill_running_pivxd(wait: bool) -> crate::error::Result<usize> {
     let mut system = System::new_all();
@@ -126,20 +128,6 @@ async fn download_checkpoint(data_dir: &Path) -> crate::error::Result<()> {
     if !request.status().is_success() {
         return Err(PIVXErrors::ServerError);
     }
-
-    std::fs::create_dir_all(data_dir)?;
-    let mut file = File::create(data_dir.join("checkpoint.zip")).await?;
-    while let Some(chunk) = request.chunk().await? {
-        file.write_all(&chunk).await?;
-    }
-
-    let mut file = OpenOptions::new()
-        .read(true)
-        .create(true)
-        .write(true)
-        .open(data_dir.join("checkpoint.zip"))
-        .await?;
-
     for name in ["blocks", "chainstate", "sporks", "zerocoin"] {
         let p = data_dir.join(name);
         if p.is_dir() {
@@ -153,13 +141,16 @@ async fn download_checkpoint(data_dir: &Path) -> crate::error::Result<()> {
             tokio::fs::remove_file(p).await?;
         }
     }
-    let mut buf = vec![];
-    file.seek(std::io::SeekFrom::Start(0)).await?;
-    file.read_to_end(&mut buf).await?;
-    println!("Extracting checkpoint");
-    let mut zip = ZipArchive::new(Cursor::new(buf))?;
-    zip.extract(data_dir)?;
 
+    let gzip = GzipDecoder::new(StreamReader::new(
+        request
+            .bytes_stream()
+            .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e)),
+    ));
+
+    let mut archive = tokio_tar::Archive::new(gzip);
+    std::fs::create_dir_all(data_dir)?;
+    archive.unpack(data_dir).await?;
     Ok(())
 }
 
