@@ -19,6 +19,9 @@ pub enum PIVXErrors {
     #[error("Pivxd not found")]
     PivxdNotFound,
 
+    #[error("Pivxd not running")]
+    PivxdNotRunning,
+
     #[error("Invalid sha256 sum")]
     WrongSha256Sum(Option<std::io::Error>),
 
