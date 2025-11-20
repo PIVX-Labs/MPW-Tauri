@@ -123,7 +123,11 @@ async fn get_pivx_rpc() -> &'static PIVXRpc {
 }
 
 async fn download_checkpoint(data_dir: &Path) -> crate::error::Result<()> {
-    println!("Downloading checkpoint");
+    // If we already have blockchain data, do not download again
+    if let Ok(true) = std::fs::exists(data_dir.join("blocks").join("blk00140.dat")) {
+        println!("Skipping checkpoint download");
+        return Ok(());
+    }
     let mut request = reqwest::get(CHECKPOINT_URL).await?;
     if !request.status().is_success() {
         return Err(PIVXErrors::ServerError);
