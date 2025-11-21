@@ -37,6 +37,7 @@ async-compression = { version = "0.4.33", features = ["gzip", "tokio"] }
 tokio-util = "0.7.17"
 tokio-tar = "0.3.1"
 flate2 = "1.1.5"
+read-progress-stream = "1.0.0"
 
 [features]
 # This feature is used for production builds or when a dev server is not specified, DO NOT REMOVE!!
