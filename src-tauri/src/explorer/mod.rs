@@ -27,15 +27,24 @@ use global_function_macro::generate_global_functions;
 
 type TxHexWithBlockCount = (String, u64, u64);
 
+#[derive(PartialEq)]
+enum ExplorerState {
+    DownloadingCheckpoint,
+    SyncingBlocks,
+    IndexingBlocks,
+    Synced,
+}
+
 #[derive(Clone)]
 pub struct Explorer<D>
 where
     D: Database,
 {
     address_index: Arc<RwLock<AddressIndex<D>>>,
-    pivx_rpc: PIVXRpc,
+    pivx_rpc: Arc<RwLock<Option<PIVXRpc>>>,
     indexed_blocks: Arc<RwLock<u64>>,
-    done_indexing: Arc<RwLock<bool>>,
+    state: Arc<RwLock<ExplorerState>>,
+    checkpoint_download_progress: Arc<RwLock<f64>>,
 }
 
 #[derive(Deserialize)]
@@ -50,13 +59,14 @@ impl<D> Explorer<D>
 where
     D: Database + Send + Clone,
 {
-    fn new(address_index: AddressIndex<D>, rpc: PIVXRpc) -> Self {
+    fn new(address_index: AddressIndex<D>, rpc: Option<PIVXRpc>) -> Self {
         let indexed_blocks = address_index.indexed_blocks.clone();
         Self {
             address_index: Arc::new(RwLock::new(address_index)),
-            pivx_rpc: rpc,
+            pivx_rpc: Arc::new(RwLock::new(rpc)),
             indexed_blocks,
-            done_indexing: Arc::new(RwLock::new(false)),
+            state: Arc::new(RwLock::new(ExplorerState::DownloadingCheckpoint)),
+            checkpoint_download_progress: Arc::new(RwLock::new(0.0)),
         }
     }
 }
@@ -146,11 +156,13 @@ async fn download_checkpoint(data_dir: &Path) -> crate::error::Result<()> {
         }
     }
 
-    let gzip = GzipDecoder::new(StreamReader::new(
+    let reader = StreamReader::new(
         request
             .bytes_stream()
             .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e)),
-    ));
+    );
+
+    let gzip = GzipDecoder::new(reader);
 
     let mut archive = tokio_tar::Archive::new(gzip);
     std::fs::create_dir_all(data_dir)?;
@@ -165,25 +177,39 @@ async fn get_explorer() -> &'static DefaultExplorer {
                 .ok_or(PIVXErrors::NoDataDir)
                 .unwrap()
                 .join("pivx-rust");
-            download_checkpoint(&dir.join(".pivx")).await.ok();
-            let pivx_rpc = get_pivx_rpc().await;
+
+            let block_file_source = BlockFileSource::new(&dir.join(".pivx").join("blocks"));
+
             let address_index = AddressIndex::new(
                 SqlLite::new(dir.join("test.sqlite")).await.unwrap(),
-                pivx_rpc.clone(),
+                block_file_source,
             );
 
-            let explorer = Explorer::new(address_index, pivx_rpc.clone());
+            let explorer = Explorer::new(address_index, None);
             // Cloning is very cheap, it's just a Pathbuf and some Arcs
             let explorer_clone = explorer.clone();
             tokio::spawn(async move {
+                *explorer_clone.state.write().await = ExplorerState::DownloadingCheckpoint;
+                download_checkpoint(&dir.join(".pivx")).await.ok();
+                let pivx_rpc = get_pivx_rpc().await;
+                explorer_clone
+                    .pivx_rpc
+                    .write()
+                    .await
+                    .replace(pivx_rpc.clone());
+                if let Ok(true) = explorer_clone.is_initial_sync().await {
+                    *explorer_clone.state.write().await = ExplorerState::SyncingBlocks;
+                }
                 while match explorer_clone.is_initial_sync().await {
                     Ok(is_initial_sync) => is_initial_sync,
                     Err(_) => true,
                 } {}
+                *explorer_clone.state.write().await = ExplorerState::IndexingBlocks;
 
                 if let Err(err) = explorer_clone.sync().await {
                     eprintln!("Warning: Syncing failed with error {}", err);
                 }
+                *explorer_clone.state.write().await = ExplorerState::Synced;
             });
 
             explorer
@@ -197,19 +223,21 @@ where
     D: Database + Send + Clone,
 {
     pub async fn get_block(&self, block_height: u64) -> crate::error::Result<String> {
-        let block_hash: String = self
-            .pivx_rpc
-            .call("getblockhash", rpc_params![block_height])
-            .await?;
-        let json: serde_json::Value = self
-            .pivx_rpc
-            .call("getblock", rpc_params![block_hash, 2])
-            .await?;
+        let rpc = self.pivx_rpc.read().await;
+        let rpc = rpc.as_ref().ok_or(PIVXErrors::PivxdNotRunning)?;
+        let block_hash: String = rpc.call("getblockhash", rpc_params![block_height]).await?;
+        let json: serde_json::Value = rpc.call("getblock", rpc_params![block_hash, 2]).await?;
         Ok(json.to_string())
     }
 
     pub async fn get_block_count(&self) -> crate::error::Result<u64> {
-        self.pivx_rpc.call("getblockcount", rpc_params![]).await
+        self.pivx_rpc
+            .read()
+            .await
+            .as_ref()
+            .ok_or(PIVXErrors::PivxdNotRunning)?
+            .call("getblockcount", rpc_params![])
+            .await
     }
 
     /// Gets all raw transactions containing one of `address`
@@ -265,27 +293,29 @@ where
             height: u64,
             time: u64,
         }
+        let rpc = self.pivx_rpc.read().await;
+        let rpc = rpc.as_ref().ok_or(PIVXErrors::PivxdNotFound)?;
 
         let TxResponse {
             hex,
             blockhash,
             confirmations,
-        } = self
-            .pivx_rpc
+        } = rpc
             .call("getrawtransaction", rpc_params![txid, true])
             .await?;
         if confirmations == 0 {
             return Err(PIVXErrors::InvalidResponse);
         }
-        let BlockResponse { height, time } = self
-            .pivx_rpc
-            .call("getblock", rpc_params![blockhash])
-            .await?;
+        let BlockResponse { height, time } = rpc.call("getblock", rpc_params![blockhash]).await?;
         Ok((hex, height, time))
     }
 
     pub async fn send_transaction(&self, transaction: &str) -> crate::error::Result<String> {
         self.pivx_rpc
+            .read()
+            .await
+            .as_ref()
+            .ok_or(PIVXErrors::PivxdNotRunning)?
             .call("sendrawtransaction", rpc_params![transaction])
             .await
     }
@@ -311,7 +341,7 @@ where
             .update_block_count(self.get_block_count().await? - 100)
             .await?;
         self.switch_to_rpc_source().await?;
-        *self.done_indexing.write().await = true;
+        *self.state.write().await = ExplorerState::Synced;
         loop {
             sleep(Duration::from_secs(60)).await;
             self.address_index.write().await.sync().await?;
@@ -343,6 +373,10 @@ where
     pub async fn is_initial_sync(&self) -> crate::error::Result<bool> {
         let chain_info: ChainInfo = self
             .pivx_rpc
+            .read()
+            .await
+            .as_ref()
+            .ok_or(PIVXErrors::PivxdNotRunning)?
             .call("getblockchaininfo", rpc_params![])
             .await?;
         Ok(chain_info.initial_block_downloading)
@@ -351,6 +385,10 @@ where
     pub async fn get_sync_progress(&self) -> crate::error::Result<f64> {
         let chain_info: ChainInfo = self
             .pivx_rpc
+            .read()
+            .await
+            .as_ref()
+            .ok_or(PIVXErrors::PivxdNotRunning)?
             .call("getblockchaininfo", rpc_params![])
             .await?;
         Ok(chain_info.verificationprogress)
@@ -360,7 +398,15 @@ where
         Ok((*self.indexed_blocks.read().await as f64) / (self.get_block_count().await? as f64))
     }
 
+    pub async fn is_downloading_checkpoint(&self) -> crate::error::Result<bool> {
+        Ok(*self.state.read().await == ExplorerState::DownloadingCheckpoint)
+    }
+
+    pub async fn get_checkpoint_download_progress(&self) -> crate::error::Result<f64> {
+        Ok(*self.checkpoint_download_progress.read().await)
+    }
+
     pub async fn index_is_done(&self) -> crate::error::Result<bool> {
-        Ok(*self.done_indexing.read().await)
+        Ok(*self.state.read().await == ExplorerState::Synced)
     }
 }
