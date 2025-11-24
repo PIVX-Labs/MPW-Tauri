@@ -143,7 +143,7 @@ async fn download_checkpoint(
         return Err(PIVXErrors::ServerError);
     }
     // Default to 20GB if there is no content length
-    let content_length = request.content_length().unwrap_or(20_000_000_000.0);
+    let content_length = request.content_length().unwrap_or(20_000_000_000);
     for name in ["blocks", "chainstate", "sporks", "zerocoin"] {
         let p = data_dir.join(name);
         if p.is_dir() {
