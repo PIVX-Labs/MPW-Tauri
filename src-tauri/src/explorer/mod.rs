@@ -3,6 +3,7 @@ use crate::error::PIVXErrors;
 use async_compression::tokio::bufread::GzipDecoder;
 use futures::TryStreamExt;
 use jsonrpsee::rpc_params;
+use read_progress_stream::{ProgressHandler, ReadProgressStream};
 use serde::Deserialize;
 use std::io::Cursor;
 use std::path::Path;
@@ -132,16 +133,17 @@ async fn get_pivx_rpc() -> &'static PIVXRpc {
         .await
 }
 
-async fn download_checkpoint(data_dir: &Path) -> crate::error::Result<()> {
-    // If we already have blockchain data, do not download again
-    if let Ok(true) = std::fs::exists(data_dir.join("blocks").join("blk00140.dat")) {
-        println!("Skipping checkpoint download");
-        return Ok(());
-    }
+async fn download_checkpoint(
+    data_dir: &Path,
+    mut progress: Box<dyn FnMut(f64) + Send + Sync + 'static>,
+) -> crate::error::Result<()> {
+    println!("Downloading checkpoint");
     let mut request = reqwest::get(CHECKPOINT_URL).await?;
     if !request.status().is_success() {
         return Err(PIVXErrors::ServerError);
     }
+    // Default to 20GB if there is no content length
+    let content_length = request.content_length().unwrap_or(20_000_000_000);
     for name in ["blocks", "chainstate", "sporks", "zerocoin"] {
         let p = data_dir.join(name);
         if p.is_dir() {
@@ -156,11 +158,14 @@ async fn download_checkpoint(data_dir: &Path) -> crate::error::Result<()> {
         }
     }
 
-    let reader = StreamReader::new(
+    let reader = StreamReader::new(ReadProgressStream::new(
         request
             .bytes_stream()
             .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e)),
-    );
+        Box::new(move |bytes_read, _| {
+            progress((bytes_read as f64) / (content_length as f64));
+        }),
+    ));
 
     let gzip = GzipDecoder::new(reader);
 
@@ -190,7 +195,18 @@ async fn get_explorer() -> &'static DefaultExplorer {
             let explorer_clone = explorer.clone();
             tokio::spawn(async move {
                 *explorer_clone.state.write().await = ExplorerState::DownloadingCheckpoint;
-                download_checkpoint(&dir.join(".pivx")).await.ok();
+                let explorer = explorer_clone.clone();
+                download_checkpoint(
+                    &dir.join(".pivx"),
+                    Box::new(move |progress| {
+                        let explorer = explorer.clone();
+                        tokio::spawn(async move {
+                            *explorer.checkpoint_download_progress.write().await += progress;
+                        });
+                    }),
+                )
+                .await
+                .ok();
                 let pivx_rpc = get_pivx_rpc().await;
                 explorer_clone
                     .pivx_rpc
