@@ -49,14 +49,6 @@ impl BlockStream {
         block.ok().map(|b| (b, current_block))
     }
 
-    pub fn new(client: HttpClient) -> Self {
-        Self {
-            client,
-            current_block: 0,
-            current_future: None,
-        }
-    }
-
     pub fn with_starting_block(client: HttpClient, starting_block: u64) -> Self {
         Self {
             client,

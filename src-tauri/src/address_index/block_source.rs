@@ -17,8 +17,8 @@ impl Deref for BlockSourceType {
 
     fn deref(&self) -> &Self::Target {
         match self {
-            Self::Regular(ref d) => return d.as_ref(),
-            Self::Indexed(ref d) => return d.as_ref().as_block_source(),
+            Self::Regular(ref d) => d.as_ref(),
+            Self::Indexed(ref d) => d.as_ref().as_block_source(),
         }
     }
 }

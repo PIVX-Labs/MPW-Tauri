@@ -3,18 +3,12 @@ use crate::error::PIVXErrors;
 use async_compression::tokio::bufread::GzipDecoder;
 use futures::TryStreamExt;
 use jsonrpsee::rpc_params;
-use read_progress_stream::{ProgressHandler, ReadProgressStream};
+use read_progress_stream::ReadProgressStream;
 use serde::Deserialize;
-use std::io::Cursor;
 use std::path::Path;
 use std::sync::Arc;
 use std::time::Duration;
 use sysinfo::{ProcessesToUpdate, Signal, System};
-use tokio::fs::File;
-use tokio::fs::OpenOptions;
-use tokio::io::AsyncReadExt;
-use tokio::io::AsyncSeekExt;
-use tokio::io::AsyncWriteExt;
 use tokio::sync::{OnceCell, RwLock};
 use tokio::time::sleep;
 use tokio_util::io::StreamReader;
@@ -76,18 +70,18 @@ static EXPLORER: OnceCell<DefaultExplorer> = OnceCell::const_new();
 static PIVX_RPC: OnceCell<PIVXRpc> = OnceCell::const_new();
 // If more than `LAST_BLOCK_GAP` are left to sync, prefer BlockFileSource
 const LAST_BLOCK_GAP: u64 = 10_000;
-const CHECKPOINT_URL: &'static str = "https://snapshot.rockdev.org/PIVXsnapshotLatest.tgz";
+const CHECKPOINT_URL: &str = "https://snapshot.rockdev.org/PIVXsnapshotLatest.tgz";
 
 pub fn kill_running_pivxd(wait: bool) -> crate::error::Result<usize> {
     let mut system = System::new_all();
     system.refresh_processes(ProcessesToUpdate::All, true);
     let mut killed = 0;
 
-    for (_pid, process) in system.processes() {
+    for process in system.processes().values() {
         let name = process.name();
         if name == "pivxd" {
             if wait {
-                if let Ok(_) = process.kill_with_and_wait(Signal::Term) {
+                if process.kill_with_and_wait(Signal::Term).is_ok() {
                     killed += 1;
                 }
             } else {
@@ -138,7 +132,7 @@ async fn download_checkpoint(
     mut progress: Box<dyn FnMut(f64) + Send + Sync + 'static>,
 ) -> crate::error::Result<()> {
     println!("Downloading checkpoint");
-    let mut request = reqwest::get(CHECKPOINT_URL).await?;
+    let request = reqwest::get(CHECKPOINT_URL).await?;
     if !request.status().is_success() {
         return Err(PIVXErrors::ServerError);
     }
@@ -159,9 +153,7 @@ async fn download_checkpoint(
     }
 
     let reader = StreamReader::new(ReadProgressStream::new(
-        request
-            .bytes_stream()
-            .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e)),
+        request.bytes_stream().map_err(std::io::Error::other),
         Box::new(move |bytes_read, _| {
             progress((bytes_read as f64) / (content_length as f64));
         }),
@@ -183,7 +175,7 @@ async fn get_explorer() -> &'static DefaultExplorer {
                 .unwrap()
                 .join("pivx-rust");
 
-            let block_file_source = BlockFileSource::new(&dir.join(".pivx").join("blocks"));
+            let block_file_source = BlockFileSource::new(dir.join(".pivx").join("blocks"));
 
             let address_index = AddressIndex::new(
                 SqlLite::new(dir.join("test.sqlite")).await.unwrap(),
@@ -216,10 +208,7 @@ async fn get_explorer() -> &'static DefaultExplorer {
                 if let Ok(true) = explorer_clone.is_initial_sync().await {
                     *explorer_clone.state.write().await = ExplorerState::SyncingBlocks;
                 }
-                while match explorer_clone.is_initial_sync().await {
-                    Ok(is_initial_sync) => is_initial_sync,
-                    Err(_) => true,
-                } {}
+                while explorer_clone.is_initial_sync().await.unwrap_or(true) {}
                 *explorer_clone.state.write().await = ExplorerState::IndexingBlocks;
 
                 if let Err(err) = explorer_clone.sync().await {

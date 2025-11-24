@@ -3,7 +3,6 @@
 
 use crate::explorer::kill_running_pivxd;
 use pivx::PIVXDefinition;
-use tauri::Manager;
 
 mod address_index;
 mod binary;
@@ -33,15 +32,16 @@ fn main() {
             explorer_get_sync_progress,
             explorer_get_index_progress,
             explorer_index_is_done,
+            explorer_is_downloading_checkpoint,
+            explorer_get_checkpoint_download_progress,
         ])
-        .on_window_event(|event| match event.event() {
-            tauri::WindowEvent::Destroyed => {
+        .on_window_event(|event| {
+            if let tauri::WindowEvent::Destroyed = event.event() {
                 let window = event.window();
                 if window.label() == "main" {
                     kill_running_pivxd(false).ok();
                 }
             }
-            _ => {}
         })
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
