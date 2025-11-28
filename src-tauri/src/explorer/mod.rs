@@ -131,6 +131,10 @@ async fn download_checkpoint(
     data_dir: &Path,
     mut progress: Box<dyn FnMut(f64) + Send + Sync + 'static>,
 ) -> crate::error::Result<()> {
+    if data_dir.join("blocks").join("blk00140.dat").exists() {
+        println!("Skipping checkpoitn download becase the node has already been synced");
+        return Ok(());
+    }
     println!("Downloading checkpoint");
     let request = reqwest::get(CHECKPOINT_URL).await?;
     if !request.status().is_success() {
