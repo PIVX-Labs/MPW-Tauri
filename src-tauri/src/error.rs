@@ -51,6 +51,9 @@ pub enum PIVXErrors {
 
     #[error("PIVXD is already running")]
     PivxdAlreadyRunning,
+
+    #[error("NTP date error")]
+    NtpDateError,
 }
 
 pub type Result<T> = std::result::Result<T, PIVXErrors>;

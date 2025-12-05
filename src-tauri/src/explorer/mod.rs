@@ -414,4 +414,16 @@ where
     pub async fn index_is_done(&self) -> crate::error::Result<bool> {
         Ok(*self.state.read().await == ExplorerState::Synced)
     }
+
+    pub async fn get_ntp_date(&self) -> crate::error::Result<u64> {
+        let target = "0.pool.ntp.org:123";
+        let res = ntp_client::Client::new()
+            .target(target)
+            .map_err(|_| PIVXErrors::NtpDateError)?
+            .format(Some("%Y/%m/%d %H:%M:%S"))
+            .request()
+            .map_err(|_| PIVXErrors::NtpDateError)?;
+        let datetime = res.get_datetime_utc().ok_or(PIVXErrors::NtpDateError)?;
+        Ok(datetime.to_utc().timestamp_millis() as u64)
+    }
 }
