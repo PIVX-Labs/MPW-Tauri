@@ -34,6 +34,7 @@ fn main() {
             explorer_index_is_done,
             explorer_is_downloading_checkpoint,
             explorer_get_checkpoint_download_progress,
+            explorer_get_ntp_date,
         ])
         .on_window_event(|event| {
             if let tauri::WindowEvent::Destroyed = event.event() {
