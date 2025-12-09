@@ -9,15 +9,15 @@ pub mod types;
 use block_source::{BlockSource, BlockSourceType};
 use database::Database;
 use futures::StreamExt;
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
-use tokio::sync::RwLock;
 use types::{Block, Vin};
 
 #[derive(Clone)]
 pub struct AddressIndex<D: Database> {
     database: D,
     block_source: BlockSourceType,
-    pub indexed_blocks: Arc<RwLock<u64>>,
+    pub indexed_blocks: Arc<AtomicU64>,
 }
 
 impl<D> AddressIndex<D>
@@ -30,7 +30,8 @@ where
             BlockSourceType::Regular(block_source) => {
                 let mut stream = block_source.get_blocks()?.chunks(500_000);
                 while let Some(blocks) = stream.next().await {
-                    *self.indexed_blocks.write().await += blocks.len() as u64;
+                    self.indexed_blocks
+                        .fetch_add(blocks.len() as u64, Ordering::Relaxed);
                     Self::store_blocks(&mut self.database, blocks.into_iter()).await?;
                 }
             }
@@ -39,7 +40,8 @@ where
                 let mut stream = block_source.get_blocks_indexed(start)?.chunks(10);
                 while let Some(blocks) = stream.next().await {
                     let block_count = blocks.last().map(|(_, i)| *i);
-                    *self.indexed_blocks.write().await += blocks.len() as u64;
+                    self.indexed_blocks
+                        .fetch_add(blocks.len() as u64, Ordering::Relaxed);
                     Self::store_blocks(
                         &mut self.database,
                         blocks.into_iter().map(|(block, _)| block),
@@ -71,7 +73,7 @@ where
         Self {
             database,
             block_source: block_source.instantiate(),
-            indexed_blocks: Arc::new(RwLock::new(0)),
+            indexed_blocks: Arc::new(AtomicU64::new(0)),
         }
     }
     pub async fn get_address_txids(&self, address: &str) -> crate::error::Result<Vec<String>> {
