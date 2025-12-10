@@ -351,8 +351,8 @@ where
             .get_last_indexed_block()
             .await?;
 
-        if current_block - last_indexed_block >= LAST_BLOCK_GAP {
-            self.switch_to_blockfile_source().await?;
+        if current_block - last_indexed_block < LAST_BLOCK_GAP {
+            self.switch_to_rpc_source().await?;
         }
 
         self.address_index.write().await.sync().await?;
