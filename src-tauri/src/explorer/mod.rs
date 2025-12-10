@@ -6,6 +6,7 @@ use jsonrpsee::rpc_params;
 use read_progress_stream::ReadProgressStream;
 use serde::Deserialize;
 use std::path::Path;
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
 use std::time::Duration;
 use sysinfo::{ProcessesToUpdate, Signal, System};
@@ -19,6 +20,8 @@ use crate::address_index::{
 use crate::binary::Binary;
 use crate::{PIVXDefinition, RPC_PORT};
 use global_function_macro::generate_global_functions;
+
+pub const DECIMAL_ACCURACY: f64 = 10_000_000.0;
 
 type TxHexWithBlockCount = (String, u64, u64);
 
@@ -37,9 +40,10 @@ where
 {
     address_index: Arc<RwLock<AddressIndex<D>>>,
     pivx_rpc: Arc<RwLock<Option<PIVXRpc>>>,
-    indexed_blocks: Arc<RwLock<u64>>,
+    indexed_blocks: Arc<AtomicU64>,
     state: Arc<RwLock<ExplorerState>>,
-    checkpoint_download_progress: Arc<RwLock<f64>>,
+    // Displays progress multiplied by DECIMAL_ACCURACY
+    checkpoint_download_progress: Arc<AtomicU64>,
 }
 
 #[derive(Deserialize)]
@@ -61,7 +65,7 @@ where
             pivx_rpc: Arc::new(RwLock::new(rpc)),
             indexed_blocks,
             state: Arc::new(RwLock::new(ExplorerState::DownloadingCheckpoint)),
-            checkpoint_download_progress: Arc::new(RwLock::new(0.0)),
+            checkpoint_download_progress: Arc::new(AtomicU64::new(0)),
         }
     }
 }
@@ -197,7 +201,16 @@ async fn get_explorer() -> &'static DefaultExplorer {
                     Box::new(move |progress| {
                         let explorer = explorer.clone();
                         tokio::spawn(async move {
-                            *explorer.checkpoint_download_progress.write().await += progress;
+                            explorer
+                                .checkpoint_download_progress
+                                .fetch_add((progress * DECIMAL_ACCURACY) as u64, Ordering::Relaxed);
+                            println!("{}", progress);
+                            println!(
+                                "{}",
+                                explorer
+                                    .checkpoint_download_progress
+                                    .load(Ordering::Relaxed)
+                            );
                         });
                     }),
                 )
@@ -404,7 +417,8 @@ where
     }
 
     pub async fn get_index_progress(&self) -> crate::error::Result<f64> {
-        Ok((*self.indexed_blocks.read().await as f64) / (self.get_block_count().await? as f64))
+        Ok((self.indexed_blocks.load(Ordering::Relaxed) as f64)
+            / (self.get_block_count().await? as f64))
     }
 
     pub async fn is_downloading_checkpoint(&self) -> crate::error::Result<bool> {
@@ -412,7 +426,7 @@ where
     }
 
     pub async fn get_checkpoint_download_progress(&self) -> crate::error::Result<f64> {
-        Ok(*self.checkpoint_download_progress.read().await)
+        Ok(self.checkpoint_download_progress.load(Ordering::Relaxed) as f64 / DECIMAL_ACCURACY)
     }
 
     pub async fn index_is_done(&self) -> crate::error::Result<bool> {
