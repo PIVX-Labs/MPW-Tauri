@@ -89,9 +89,8 @@ impl PIVXRpc {
         let credentials = format!("{}:{}", crate::RPC_USERNAME, crate::RPC_PASSWORD);
         headers.insert(
             "Authorization",
-            // TODO: remove unwrap
             HeaderValue::from_str(&format!("Basic {}", BASE64_STANDARD.encode(credentials)))
-                .unwrap(),
+                .map_err(|_| PIVXErrors::InvalidCredentials)?,
         );
         Ok(PIVXRpc {
             client: HttpClient::builder().set_headers(headers).build(url)?,

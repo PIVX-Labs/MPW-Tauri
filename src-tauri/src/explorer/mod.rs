@@ -186,7 +186,9 @@ async fn get_explorer() -> &'static DefaultExplorer {
             let block_file_source = BlockFileSource::new(dir.join(".pivx").join("blocks"));
 
             let address_index = AddressIndex::new(
-                SqlLite::new(dir.join("test.sqlite")).await.unwrap(),
+                SqlLite::new(dir.join("address_index.sqlite"))
+                    .await
+                    .unwrap(),
                 block_file_source,
             );
 

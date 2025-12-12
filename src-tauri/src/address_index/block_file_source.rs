@@ -35,7 +35,6 @@ impl BlockFileIterator {
             db_path: db_path.into(),
             open_file: None,
             counter: 0,
-            //counter: 0,
         }
     }
 }
@@ -45,19 +44,14 @@ impl Iterator for BlockFileIterator {
 
     fn next(&mut self) -> Option<Self::Item> {
         loop {
+            let file_path = self.db_path.join(format!("blk{:0>5}.dat", self.counter));
             let mut file = match &self.open_file {
                 Some(file) => file,
                 None => {
-                    self.open_file = Some(
-                        File::open(self.db_path.join(format!("blk{:0>5}.dat", self.counter)))
-                            .ok()?,
-                    );
-                    println!(
-                        "opened file {:?}...",
-                        self.db_path.join(format!("blk{:0>5}.dat", self.counter))
-                    );
+                    self.open_file = Some(File::open(&file_path).ok()?);
+                    println!("opened file {:?}...", file_path,);
                     self.counter += 1;
-                    self.open_file.as_ref().unwrap()
+                    self.open_file.as_ref()?
                 }
             };
             let block = AddressExtractor::get_addresses_from_block(&mut file);
@@ -67,10 +61,7 @@ impl Iterator for BlockFileIterator {
                 Err(e) => {
                     println!("{:?}", e);
                     self.open_file = None;
-                    println!(
-                        "Done with file {:?}",
-                        self.db_path.join(format!("blk{:0>5}.dat", self.counter))
-                    );
+                    println!("Done with file {:?}", file_path,);
                 }
             }
         }
