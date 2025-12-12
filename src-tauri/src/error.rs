@@ -52,6 +52,9 @@ pub enum PIVXErrors {
     #[error("PIVXD is already running")]
     PivxdAlreadyRunning,
 
+    #[error("Invalid credentials")]
+    InvalidCredentials,
+
     #[error("NTP date error")]
     NtpDateError,
 }
