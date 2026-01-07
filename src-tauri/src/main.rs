@@ -18,6 +18,7 @@ fn main() {
     use explorer::auto_generated::*;
 
     tauri::Builder::default()
+        .plugin(tauri_plugin_shell::init())
         .invoke_handler(tauri::generate_handler![
             explorer_get_block,
             explorer_get_block_count,
@@ -36,9 +37,8 @@ fn main() {
             explorer_get_checkpoint_download_progress,
             explorer_get_ntp_date,
         ])
-        .on_window_event(|event| {
-            if let tauri::WindowEvent::Destroyed = event.event() {
-                let window = event.window();
+        .on_window_event(|window, event| {
+            if let tauri::WindowEvent::Destroyed = event {
                 if window.label() == "main" {
                     kill_running_pivxd(false).ok();
                 }
