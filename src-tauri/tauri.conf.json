@@ -1,42 +1,36 @@
 {
   "build": {
-      "devPath": "http://127.0.0.1:5500",
-    "distDir": "../MPW/dist",
-    "withGlobalTauri": true
+    "frontendDist": "../MPW/dist",
+    "devUrl": "http://127.0.0.1:5500"
   },
-  "package": {
-    "productName": "mpw-tauri",
-    "version": "0.1.0"
+  "bundle": {
+    "active": true,
+    "targets": "all",
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ]
   },
-  "tauri": {
-    "allowlist": {
-      "all": false,
-      "shell": {
-        "all": false,
-        "open": true
-      }
-    },
+  "productName": "mpw-tauri",
+  "mainBinaryName": "mpw-tauri",
+  "version": "0.1.0",
+  "identifier": "org.mypivxwallet.app",
+  "plugins": {},
+  "app": {
+    "withGlobalTauri": true,
     "windows": [
       {
         "title": "mpw-tauri",
         "width": 800,
-        "height": 600
+        "height": 600,
+        "useHttpsScheme": true
       }
     ],
     "security": {
       "csp": null
-    },
-    "bundle": {
-      "active": true,
-      "targets": "all",
-      "identifier": "org.mypivxwallet.app",
-      "icon": [
-        "icons/32x32.png",
-        "icons/128x128.png",
-        "icons/128x128@2x.png",
-        "icons/icon.icns",
-        "icons/icon.ico"
-      ]
     }
   }
 }
