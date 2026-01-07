@@ -1,7 +1,7 @@
 name: Lint
 
 env:
-  TAURI_DEPS: "libwebkit2gtk-4.0-dev \
+  TAURI_DEPS: "libwebkit2gtk-4.1-dev \
     libsoup2.4-dev \
     build-essential \
     curl \
