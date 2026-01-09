@@ -28,6 +28,7 @@ pub enum PIVXErrors {
     #[error("Unable to connect to pivxd")]
     UnableToAuthPIVXD(#[from] jsonrpsee::core::ClientError),
 
+    #[cfg(feature = "full-node")]
     #[error("Error with Sqlite")]
     SqliteError(#[from] rusqlite::Error),
 

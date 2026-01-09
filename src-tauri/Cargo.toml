@@ -4,8 +4,9 @@ version = "0.1.0"
 description = "MPW bundled with tauri"
 authors = ["Duddino <duddino@duddino.com>"]
 edition = "2021"
-
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+[lib]
+name="app_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
 
 [build-dependencies]
 tauri-build = { version = "2", features = [] }
@@ -17,12 +18,12 @@ serde_json = "1"
 derive_more = { version = "1.0.0", features = ["display", "error"] }
 dirs = "5.0.1"
 mockall = "0.13.0"
-reqwest = { version = "0.12.7", features = ["json", "stream"] }
+reqwest = { version = "0.13.1", features = ["json", "stream", "rustls"] }
 tar = "0.4.41"
 thiserror = "1.0.63"
 sha256 = "1.5.0"
 futures = "0.3.30"
-rusqlite = "0.32.1"
+rusqlite = { version = "0.32.1", optional = true }
 jsonrpsee = { version = "0.24.4", features = ["client-core"] }
 tokio = { version = "1.40.0", features = ["process"] }
 base64 = "0.22.1"
@@ -44,7 +45,7 @@ tauri-plugin-shell = "2"
 [features]
 # This feature is used for production builds or when a dev server is not specified, DO NOT REMOVE!!
 custom-protocol = ["tauri/custom-protocol"]
-full-node= []
+full-node = ["rusqlite"]
 
 [dev-dependencies]
 mockito = "1.5.0"
