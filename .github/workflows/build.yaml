@@ -116,4 +116,39 @@ jobs:
         with:
           name: tauri-bundles
           path: src-tauri/target/release/bundle/
+  build-android:
+    name: Android Build
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out Git repository
+        uses: actions/checkout@v4
+        with:
+          submodules: true
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+
+      - name: Set up Rust
+        uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          rustflags: ""
+      - name: Set up android SDK
+        uses: android-actions/setup-android@v3
+      
+      - name: Install Node.js dependencies
+        run: npm ci && cd ./MPW && npm ci
+
+      - name: Add jammy repo
+        run: echo "deb http://gb.archive.ubuntu.com/ubuntu jammy main" | sudo tee /etc/apt/sources.list
+
+      - name: Install tauri deps
+        run: sudo apt update && sudo apt install $TAURI_DEPS
+
+      - name: Build MPW
+        run: cd ./MPW && npm run build
+
+      - name: Build Android
+        run: npx run tauri build
+
 
