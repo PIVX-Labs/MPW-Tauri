@@ -156,7 +156,7 @@ jobs:
       - name: Upload bundles
         uses: actions/upload-artifact@v4
         with:
-          name: tauri-bundles
+          name: android-build
           path: |
             src-tauri/target/release/bundle/gen/android/app/build/outputs/bundle/universalRelease/app-universal-release.aab
             src-tauri/gen/android/app/build/outputs/apk/universal/release/app-universal-release-unsigned.apk
