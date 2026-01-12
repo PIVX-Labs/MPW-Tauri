@@ -149,6 +149,6 @@ jobs:
         run: cd ./MPW && npm run build
 
       - name: Build Android
-        run: npx run tauri build
+        run: npx tauri build
 
 
