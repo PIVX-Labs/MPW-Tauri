@@ -148,6 +148,9 @@ jobs:
       - name: Build MPW
         run: cd ./MPW && npm run build
 
+      - name: Init android
+        run: npx tauri android init
+        
       - name: Build Android
         run: npx tauri android build
 
