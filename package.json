@@ -5,7 +5,9 @@
   "type": "module",
   "scripts": {
     "tauri": "tauri",
-    "dev": "concurrently \"npm --prefix MPW run dev\" \"tauri dev\" --kill-others --success first"
+    "dev": "concurrently \"npm --prefix MPW run dev\" \"tauri dev\" --kill-others --success first --features=\"full-node\"",
+    "android-dev": "concurrently \"npm --prefix MPW run dev\" \"tauri android dev\" --kill-others --success first",
+    "dev-light": "concurrently \"npm --prefix MPW run dev\" \"tauri dev\" --kill-others --success first"
   },
   "devDependencies": {
     "@tauri-apps/cli": "^2.9.6",
