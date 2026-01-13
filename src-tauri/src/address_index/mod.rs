@@ -3,7 +3,7 @@ pub mod block_file_source;
 pub mod block_source;
 pub mod database;
 pub mod pivx_rpc;
-#[cfg(feature = "full_node")]
+#[cfg(feature = "full-node")]
 pub mod sql_lite;
 pub mod types;
 
