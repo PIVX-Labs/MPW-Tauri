@@ -36,7 +36,7 @@ pub fn run() {
     let tauri = tauri.invoke_handler(tauri::generate_handler![is_full_node]);
     #[cfg(feature = "full-node")]
     let tauri = tauri.invoke_handler(tauri::generate_handler![
-	is_full_node,
+        is_full_node,
         explorer_get_block,
         explorer_get_block_count,
         explorer_get_txs,
