@@ -8,6 +8,7 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 use tar::Archive;
 use tokio::io::{AsyncBufReadExt, BufReader};
+use zip::ZipArchive;
 
 use crate::binary::BinaryDefinition;
 
@@ -15,12 +16,23 @@ pub struct PIVXDefinition;
 
 impl PIVXDefinition {
     fn inner_decompress_archive(&self, dir: &Path) -> Result<(), PIVXErrors> {
+	if cfg!(target_os="windows")
+	{
+	    let mut archive = ZipArchive::new(File::open(dir.join("pivxd.zip"))?).unwrap();
+	    archive.extract(dir).unwrap(); // TOOD: remove unwrap
+	}
+	else
+	{
         let mut tarball = Archive::new(GzDecoder::new(File::open(dir.join("pivxd.tar.gz"))?));
-        tarball.unpack(dir)?;
+            tarball.unpack(dir)?;
+	}
         Ok(())
     }
 
     fn inner_install_params(&self, dir: &Path) -> Result<(), PIVXErrors> {
+	if cfg!(target_os="windows") {
+	    return Ok(())
+	}
         let pivx_dir = dir.join("pivx-5.6.1");
         let script_path = pivx_dir.join("install-params.sh");
         let mut handle = Command::new(script_path)
@@ -44,6 +56,11 @@ impl BinaryDefinition for PIVXDefinition {
     fn get_url(&self) -> &str {
         #[cfg(target_os = "linux")]
 	return "https://github.com/PIVX-Project/PIVX/releases/download/v5.6.1/pivx-5.6.1-x86_64-linux-gnu.tar.gz";
+	#[cfg(target_os = "windows")]
+	return "https://github.com/PIVX-Project/PIVX/releases/download/v5.6.1/pivx-5.6.1-win64.zip";
+
+	#[cfg(target_os = "macos")]
+	return "https://github.com/PIVX-Project/PIVX/releases/download/v5.6.1/pivx-5.6.1-osx64.tar.gz";
 
         #[allow(unreachable_code)]
         {
@@ -54,6 +71,13 @@ impl BinaryDefinition for PIVXDefinition {
     fn get_sha256sum(&self) -> &str {
         #[cfg(target_os = "linux")]
         return "6704625c63ff73da8c57f0fbb1dab6f1e4bd8f62c17467e05f52a64012a0ee2f";
+
+	#[cfg(target_os = "windows")]
+	return "ae3a7896dee74600665af717fb5785f52be3e2f5cab3a57873020c66bdff54fc";
+
+	#[cfg(target_os = "macos")]
+	return "6704625c63ff73da8c57f0fbb1dab6f1e4bd8f62c17467e05f52a64012a0ee2f";
+	
         #[allow(unreachable_code)]
         {
             panic!("Unsupported OS")
@@ -64,6 +88,12 @@ impl BinaryDefinition for PIVXDefinition {
         #[cfg(target_os = "linux")]
         return "pivxd.tar.gz";
 
+	#[cfg(target_os = "windows")]
+	return "pivxd.zip";
+
+	#[cfg(target_os = "macos")]
+	return "pivxd.tar.gz";	
+
         #[allow(unreachable_code)]
         {
             panic!("Unsupported OS")
@@ -71,7 +101,13 @@ impl BinaryDefinition for PIVXDefinition {
     }
 
     fn get_binary_path(&self, base_dir: &Path) -> PathBuf {
-        base_dir.join("pivx-5.6.1").join("bin").join("pivxd")
+        base_dir.join("pivx-5.6.1").join("bin").join(
+	    if cfg!(target_os="windows") {
+		"pivxd.exe"
+	    } else {
+		"pivxd"
+	    }
+	)
     }
 
     fn get_binary_args(&self, base_dir: &Path) -> Result<Vec<String>, PIVXErrors> {
