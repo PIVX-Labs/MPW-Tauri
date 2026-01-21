@@ -17,7 +17,7 @@
   "productName": "mpw-tauri",
   "mainBinaryName": "mpw-tauri",
   "version": "0.1.0",
-  "identifier": "org.mypivxwallet.app",
+  "identifier": "org.mypivxwallet",
   "plugins": {},
   "app": {
     "withGlobalTauri": true,
