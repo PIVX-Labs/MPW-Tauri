@@ -12,10 +12,27 @@
       "icons/128x128@2x.png",
       "icons/icon.icns",
       "icons/icon.ico"
-    ]
+    ],
+    "macOS": {
+      "dmg": {
+        "background": "./icons/mpw_dmg_bg.png",
+        "windowSize": {
+          "height": 425,
+          "width": 660
+        },
+        "applicationFolderPosition": {
+          "x": 330,
+          "y": 300
+        },
+        "appPosition": {
+          "x": 330,
+          "y": 70
+        }
+      }
+    }
   },
-  "productName": "mpw-tauri",
-  "mainBinaryName": "mpw-tauri",
+  "productName": "My PIVX Wallet",
+  "mainBinaryName": "my-pivx-wallet",
   "version": "0.1.0",
   "identifier": "org.mypivxwallet",
   "plugins": {},
@@ -23,7 +40,7 @@
     "withGlobalTauri": true,
     "windows": [
       {
-        "title": "mpw-tauri",
+        "title": "My PIVX Wallet",
         "width": 800,
         "height": 600,
         "useHttpsScheme": true
