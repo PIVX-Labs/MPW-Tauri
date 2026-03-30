@@ -75,6 +75,7 @@ static PIVX_RPC: OnceCell<PIVXRpc> = OnceCell::const_new();
 // If more than `LAST_BLOCK_GAP` are left to sync, prefer BlockFileSource
 const LAST_BLOCK_GAP: u64 = 10_000;
 const CHECKPOINT_URL: &str = "https://snapshot.rockdev.org/PIVXsnapshotLatest.tgz";
+const ADDRESS_INDEX_URL: &str = "https://rpc2.duddino.com/address_index";
 
 pub fn kill_running_pivxd(wait: bool) -> crate::error::Result<usize> {
     let mut system = System::new_all();
@@ -172,6 +173,27 @@ async fn download_checkpoint(
     let mut archive = tokio_tar::Archive::new(gzip);
     std::fs::create_dir_all(data_dir)?;
     archive.unpack(data_dir).await?;
+
+    println!("Downloading index checkpoint");
+    let request = reqwest::get(ADDRESS_INDEX_URL);
+    if !request.status().is_success() {
+        return Err(PIVXErrors::ServerError);
+    }
+    // Default to 1GB if there is no content length
+    let content_length = request.content_length().unwrap_or(1_000_000_000);
+    let reader = StreamReader::new(ReadProgressStream::new(
+        request.bytes_stream().map_err(std::io::Error::other),
+        Box::new(move |bytes_read, _| {
+            progress((bytes_read as f64) / (content_length as f64));
+        }),
+    ));
+
+    let gzip = GzipDecoder::new(reader);
+
+    let mut archive = tokio_tar::Archive::new(gzip);
+    std::fs::create_dir_all(data_dir)?;
+    archive.unpack(data_dir).await?;
+
     Ok(())
 }
 
